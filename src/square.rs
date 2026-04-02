@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{ops::Deref, str::FromStr};
 
 use crate::error::ParseSquareError;
 
@@ -12,6 +12,13 @@ impl Square {
 
     pub fn file(&self) -> u8 {
         (self.0 / 8) % 8
+    }
+}
+
+impl Deref for Square {
+    type Target = u8;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
