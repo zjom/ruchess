@@ -1,8 +1,11 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    ops::Deref,
+};
 
 use crate::square::Square;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub struct Bitboard(pub u64);
 
 impl Bitboard {
@@ -47,9 +50,10 @@ impl Bitboard {
     }
 }
 
-impl Default for Bitboard {
-    fn default() -> Self {
-        Bitboard(0)
+impl Deref for Bitboard {
+    type Target = u64;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
