@@ -64,6 +64,12 @@ impl std::ops::BitAnd for Bitboard {
     }
 }
 
+impl From<u64> for Bitboard {
+    fn from(value: u64) -> Self {
+        Bitboard(value)
+    }
+}
+
 impl Debug for Bitboard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_grid_str())
