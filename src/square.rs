@@ -1,6 +1,9 @@
-// use ruchess_derive::UnsignedInt;
+use std::{
+    error::Error,
+    fmt::{self, Display},
+    str::FromStr,
+};
 
-// #[derive(UnsignedInt, PartialEq, PartialOrd, Eq, Ord, Debug, Clone)]
 pub struct Square(pub u8);
 
 impl Square {
@@ -10,6 +13,31 @@ impl Square {
 
     pub fn file(&self) -> u8 {
         (self.0 / 8) % 8
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseSquareError(String);
+
+impl Error for ParseSquareError {}
+impl Display for ParseSquareError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid square notation: `{}`", self.0)
+    }
+}
+
+impl FromStr for Square {
+    type Err = ParseSquareError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let p = s.trim().as_bytes();
+        match p {
+            [b'A'..=b'H', b'1'..=b'8'] => {
+                let rank = p[0] - b'A';
+                let file = p[1] - b'1';
+                Ok(Square(file * 8 + rank))
+            }
+            _ => Err(ParseSquareError(s.into())),
+        }
     }
 }
 
