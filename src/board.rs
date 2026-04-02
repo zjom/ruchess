@@ -156,8 +156,8 @@ impl Default for Board {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct PieceWithColor(Piece, Color);
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct PieceWithColor(pub Piece, pub Color);
 
 impl std::fmt::Display for PieceWithColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -176,5 +176,28 @@ impl std::fmt::Display for PieceWithColor {
             PieceWithColor(Piece::King, Color::Black) => "♚",
         };
         write!(f, "{symbol}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::square::{A1, D4, H8};
+
+    use super::*;
+
+    #[test]
+    fn piece() {
+        let board = Board::new();
+        assert_eq!(
+            board.piece_at(&A1),
+            Some(PieceWithColor(Piece::Rook, Color::White))
+        );
+
+        assert_eq!(
+            board.piece_at(&H8),
+            Some(PieceWithColor(Piece::Rook, Color::Black))
+        );
+
+        assert_eq!(board.piece_at(&D4), None);
     }
 }
