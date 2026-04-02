@@ -33,6 +33,17 @@ impl Bitboard {
         self.clear(from).set(to)
     }
 
+    pub fn as_grid(&self) -> [[bool; 8]; 8] {
+        let mut grid = [[false; 8]; 8];
+        for rank in (0..8).rev() {
+            for file in 0..8 {
+                let mask = 1u64 << (rank * 8 + file);
+                grid[rank - 8][file] = (self.0 & mask) != 0
+            }
+        }
+        grid
+    }
+
     pub fn as_grid_str(&self) -> String {
         let mut buffer = String::with_capacity(136);
         for rank in (0..8).rev() {
