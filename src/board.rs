@@ -1,6 +1,8 @@
+use std::array;
+
 use crate::bitboard::Bitboard;
 use crate::color::{Color, NUM_COLORS};
-use crate::piece::{Piece, NUM_PIECES};
+use crate::piece::{NUM_PIECES, Piece};
 use crate::square::Square;
 
 #[derive(Clone, Copy)]
@@ -93,30 +95,31 @@ impl Board {
         board.total = Bitboard(board.sides[0].0 | board.sides[1].0);
         board
     }
-}
 
-impl Default for Board {
-    fn default() -> Self {
-        Self::new()
+    pub fn as_grid(&self) -> [[Option<PieceWithColor>; 8]; 8] {
+        let mut grid = [[None; 8]; 8];
+        for color in [Color::White, Color::Black] {
+            for piece in Piece::ALL {
+                let mut bb = self.bb(color, piece);
+                while bb.0 != 0 {
+                    let sq = bb.0.trailing_zeros() as usize;
+                    let rank = sq / 8;
+                    let file = sq % 8;
+                    grid[rank][file] = Some(PieceWithColor(piece, color));
+                    bb.0 &= bb.0 - 1; // clear lowest set bit
+                }
+            }
+        }
+        grid
     }
 }
 
 impl std::fmt::Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for rank in (0..8).rev() {
-            write!(f, " {} ", rank + 1)?;
-            for file in 0..8 {
-                let sq = Square(rank * 8 + file);
-                let mut found = None;
-                'search: for color in [Color::White, Color::Black] {
-                    for piece in Piece::ALL {
-                        if self.bb(color, piece).contains(&sq) {
-                            found = Some(PieceWithColor(piece, color));
-                            break 'search;
-                        }
-                    }
-                }
-                match found {
+        for (rank, row) in self.as_grid().iter().rev().enumerate() {
+            write!(f, " {} ", 8 - rank)?;
+            for cell in row {
+                match cell {
                     Some(p) => write!(f, " {p}")?,
                     None => write!(f, " .")?,
                 }
@@ -127,7 +130,14 @@ impl std::fmt::Display for Board {
     }
 }
 
-struct PieceWithColor(Piece, Color);
+impl Default for Board {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct PieceWithColor(Piece, Color);
 
 impl std::fmt::Display for PieceWithColor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
