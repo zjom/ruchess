@@ -13,33 +13,8 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new() -> Board {
-        let pieces = [
-            // White
-            [
-                Bitboard(0xff00), // Pawn
-                Bitboard(0x81),   // Rook
-                Bitboard(0x42),   // Knight
-                Bitboard(0x24),   // Bishop
-                Bitboard(0x8),    // Queen
-                Bitboard(0x10),   // King
-            ],
-            // Black
-            [
-                Bitboard(0x00ff000000000000), // Pawn
-                Bitboard(0x8100000000000000), // Rook
-                Bitboard(0x4200000000000000), // Knight
-                Bitboard(0x2400000000000000), // Bishop
-                Bitboard(0x0800000000000000), // Queen
-                Bitboard(0x1000000000000000), // King
-            ],
-        ];
-
-        Board {
-            pieces,
-            sides: [Bitboard(0xffff), Bitboard(0xffff000000000000)],
-            total: Bitboard(0xffff00000000ffff),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn bb(&self, color: Color, piece: Piece) -> Bitboard {
@@ -58,7 +33,7 @@ impl Board {
         self.total
     }
 
-    pub fn move_(&self, from: Square, to: Square) -> Board {
+    pub fn move_(&self, from: Square, to: Square) -> Self {
         let mut board = *self;
 
         let color = if self.sides[Color::White as usize].contains(&from) {
@@ -130,7 +105,32 @@ impl std::fmt::Display for Board {
 
 impl Default for Board {
     fn default() -> Self {
-        Self::new()
+        let pieces = [
+            // White
+            [
+                Bitboard(0xff00), // Pawn
+                Bitboard(0x81),   // Rook
+                Bitboard(0x42),   // Knight
+                Bitboard(0x24),   // Bishop
+                Bitboard(0x8),    // Queen
+                Bitboard(0x10),   // King
+            ],
+            // Black
+            [
+                Bitboard(0x00ff000000000000), // Pawn
+                Bitboard(0x8100000000000000), // Rook
+                Bitboard(0x4200000000000000), // Knight
+                Bitboard(0x2400000000000000), // Bishop
+                Bitboard(0x0800000000000000), // Queen
+                Bitboard(0x1000000000000000), // King
+            ],
+        ];
+
+        Self {
+            pieces,
+            sides: [Bitboard(0xffff), Bitboard(0xffff000000000000)],
+            total: Bitboard(0xffff00000000ffff),
+        }
     }
 }
 
