@@ -1,5 +1,3 @@
-use std::array;
-
 use crate::bitboard::Bitboard;
 use crate::color::{Color, NUM_COLORS};
 use crate::piece::{NUM_PIECES, Piece};
