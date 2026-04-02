@@ -31,7 +31,8 @@ impl From<u8> for Square {
 impl FromStr for Square {
     type Err = ParseSquareError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let p = s.trim().as_bytes();
+        let norm = s.trim().to_ascii_uppercase();
+        let p = norm.as_bytes();
         match p {
             [b'A'..=b'H', b'1'..=b'8'] => {
                 let rank = p[0] - b'A';
