@@ -3,6 +3,8 @@ use crate::color::{Color, NUM_COLORS};
 use crate::piece::{NUM_PIECES, Piece};
 use crate::square::Square;
 
+// Board does not care or know about the rules of the game.
+// Board only cares about the state of the board and moving pieces.
 #[derive(Clone, Copy)]
 pub struct Board {
     /// Indexed as `pieces[color][piece]`
@@ -29,11 +31,32 @@ impl Board {
         self.sides[color as usize]
     }
 
+    pub fn piece(&self, square: &Square) -> Option<PieceWithColor> {
+        if !self.total.contains(square) {
+            return None;
+        }
+
+        let color = if self.sides[Color::White as usize].contains(square) {
+            Color::White
+        } else {
+            Color::Black
+        };
+        for piece_idx in 0..NUM_PIECES {
+            if self.pieces[color as usize][piece_idx].contains(square) {
+                return Some(PieceWithColor(Piece::ALL[piece_idx], color));
+            }
+        }
+        None
+    }
+
     pub fn total(&self) -> Bitboard {
         self.total
     }
 
-    pub fn move_(&self, from: Square, to: Square) -> Self {
+    pub fn move_(&self, from: &Square, to: &Square) -> Self {
+        if !self.total.contains(from) {
+            return *self;
+        }
         let mut board = *self;
 
         let color = if self.sides[Color::White as usize].contains(&from) {
@@ -53,7 +76,7 @@ impl Board {
 
         for piece_idx in 0..NUM_PIECES {
             board.pieces[opponent as usize][piece_idx] =
-                board.pieces[opponent as usize][piece_idx].clear_pos(&to);
+                board.pieces[opponent as usize][piece_idx].clear(&to);
         }
 
         board.compute_agg()
