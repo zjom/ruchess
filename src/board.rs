@@ -51,8 +51,7 @@ impl Board {
             }
         }
 
-        // Clear captures from all opponent piece boards (except king)
-        for piece_idx in 0..NUM_PIECES - 1 {
+        for piece_idx in 0..NUM_PIECES {
             board.pieces[opponent as usize][piece_idx] =
                 board.pieces[opponent as usize][piece_idx].clear_pos(&to);
         }
