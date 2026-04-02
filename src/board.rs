@@ -35,18 +35,23 @@ impl Board {
         self.occupied
     }
 
-    pub fn piece_at(&self, square: &Square) -> Option<Piece> {
-        if !self.occupied.contains(square) {
+    // whether a square occupied by a piece
+    pub fn is_occupied(&self, s: &Square) -> bool {
+        self.occupied.contains(s)
+    }
+
+    pub fn piece_at(&self, s: &Square) -> Option<Piece> {
+        if !self.is_occupied(s) {
             return None;
         }
 
-        let color = if self.sides[Color::White as usize].contains(square) {
+        let color = if self.sides[Color::White as usize].contains(s) {
             Color::White
         } else {
             Color::Black
         };
         for piece_idx in 0..NUM_ROLES {
-            if self.pieces[color as usize][piece_idx].contains(square) {
+            if self.pieces[color as usize][piece_idx].contains(s) {
                 return Some(Piece(Role::ALL[piece_idx], color));
             }
         }
@@ -54,7 +59,7 @@ impl Board {
     }
 
     pub fn move_(&self, from: &Square, to: &Square) -> Self {
-        if !self.occupied.contains(from) {
+        if !self.is_occupied(from) {
             return *self;
         }
         let mut board = *self;
