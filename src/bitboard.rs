@@ -14,23 +14,23 @@ impl Bitboard {
         (self.0 & mask) != 0
     }
 
-    pub fn toggle_pos(&self, square: &Square) -> Bitboard {
+    pub fn toggle(&self, square: &Square) -> Bitboard {
         let mask = 1u64 << square.0;
         Bitboard(self.0 ^ mask)
     }
 
-    pub fn set_pos(&self, square: &Square) -> Bitboard {
+    pub fn set(&self, square: &Square) -> Bitboard {
         let mask = 1u64 << square.0;
         Bitboard(self.0 | mask)
     }
 
-    pub fn clear_pos(&self, square: &Square) -> Bitboard {
+    pub fn clear(&self, square: &Square) -> Bitboard {
         let mask: u64 = 1u64 << square.0;
         Bitboard(self.0 & !mask)
     }
 
     pub fn move_(&self, from: &Square, to: &Square) -> Bitboard {
-        self.clear_pos(from).set_pos(to)
+        self.clear(from).set(to)
     }
 
     pub fn as_grid_str(&self) -> String {
@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn set_and_clear_pos() {
         let sq = Square(0);
-        assert_eq!(Bitboard::default().set_pos(&sq), Bitboard(1));
-        assert_eq!(Bitboard(1).clear_pos(&sq), Bitboard::default());
+        assert_eq!(Bitboard::default().set(&sq), Bitboard(1));
+        assert_eq!(Bitboard(1).clear(&sq), Bitboard::default());
     }
 }
