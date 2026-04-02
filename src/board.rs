@@ -11,7 +11,7 @@ pub struct Board {
     pieces: [[Bitboard; NUM_ROLES]; NUM_COLORS],
     /// Aggregate bitboard per side, indexed as `sides[color]`
     sides: [Bitboard; NUM_COLORS],
-    total: Bitboard,
+    occupied: Bitboard,
 }
 
 impl Board {
@@ -32,11 +32,11 @@ impl Board {
     }
 
     pub fn total(&self) -> Bitboard {
-        self.total
+        self.occupied
     }
 
     pub fn piece_at(&self, square: &Square) -> Option<Piece> {
-        if !self.total.contains(square) {
+        if !self.occupied.contains(square) {
             return None;
         }
 
@@ -54,7 +54,7 @@ impl Board {
     }
 
     pub fn move_(&self, from: &Square, to: &Square) -> Self {
-        if !self.total.contains(from) {
+        if !self.occupied.contains(from) {
             return *self;
         }
         let mut board = *self;
@@ -87,7 +87,7 @@ impl Board {
         for c in 0..NUM_COLORS {
             board.sides[c] = Bitboard(board.pieces[c].iter().fold(0u64, |acc, bb| acc | bb.0));
         }
-        board.total = Bitboard(board.sides[0].0 | board.sides[1].0);
+        board.occupied = Bitboard(board.sides[0].0 | board.sides[1].0);
         board
     }
 
@@ -151,7 +151,7 @@ impl Default for Board {
         Self {
             pieces,
             sides: [Bitboard(0xffff), Bitboard(0xffff000000000000)],
-            total: Bitboard(0xffff00000000ffff),
+            occupied: Bitboard(0xffff00000000ffff),
         }
     }
 }
