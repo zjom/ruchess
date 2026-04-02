@@ -22,6 +22,12 @@ impl Deref for Square {
     }
 }
 
+impl From<u8> for Square {
+    fn from(value: u8) -> Self {
+        Square(value)
+    }
+}
+
 impl FromStr for Square {
     type Err = ParseSquareError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
