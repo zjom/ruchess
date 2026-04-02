@@ -1,8 +1,10 @@
-pub const NUM_PIECES: usize = 6;
+use crate::color::Color;
+
+pub const NUM_ROLES: usize = 6;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
-pub enum Piece {
+pub enum Role {
     Pawn = 0,
     Rook = 1,
     Knight = 2,
@@ -11,18 +13,18 @@ pub enum Piece {
     King = 5,
 }
 
-impl Piece {
-    pub const ALL: [Piece; NUM_PIECES] = [
-        Piece::Pawn,
-        Piece::Rook,
-        Piece::Bishop,
-        Piece::Knight,
-        Piece::Queen,
-        Piece::King,
+impl Role {
+    pub const ALL: [Role; NUM_ROLES] = [
+        Role::Pawn,
+        Role::Rook,
+        Role::Bishop,
+        Role::Knight,
+        Role::Queen,
+        Role::King,
     ];
 }
 
-impl std::fmt::Display for Piece {
+impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
             Self::Pawn => "P",
@@ -33,5 +35,28 @@ impl std::fmt::Display for Piece {
             Self::King => "K",
         };
         write!(f, "{s}")
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Piece(pub Role, pub Color);
+
+impl std::fmt::Display for Piece {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let symbol = match self {
+            Piece(Role::Pawn, Color::White) => "♙",
+            Piece(Role::Knight, Color::White) => "♘",
+            Piece(Role::Bishop, Color::White) => "♗",
+            Piece(Role::Rook, Color::White) => "♖",
+            Piece(Role::Queen, Color::White) => "♕",
+            Piece(Role::King, Color::White) => "♔",
+            Piece(Role::Pawn, Color::Black) => "♟",
+            Piece(Role::Knight, Color::Black) => "♞",
+            Piece(Role::Bishop, Color::Black) => "♝",
+            Piece(Role::Rook, Color::Black) => "♜",
+            Piece(Role::Queen, Color::Black) => "♛",
+            Piece(Role::King, Color::Black) => "♚",
+        };
+        write!(f, "{symbol}")
     }
 }
