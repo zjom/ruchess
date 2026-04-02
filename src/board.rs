@@ -31,7 +31,11 @@ impl Board {
         self.sides[color as usize]
     }
 
-    pub fn piece(&self, square: &Square) -> Option<PieceWithColor> {
+    pub fn total(&self) -> Bitboard {
+        self.total
+    }
+
+    pub fn piece_at(&self, square: &Square) -> Option<PieceWithColor> {
         if !self.total.contains(square) {
             return None;
         }
@@ -47,10 +51,6 @@ impl Board {
             }
         }
         None
-    }
-
-    pub fn total(&self) -> Bitboard {
-        self.total
     }
 
     pub fn move_(&self, from: &Square, to: &Square) -> Self {
