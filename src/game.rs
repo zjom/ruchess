@@ -1,4 +1,5 @@
-use crate::Role;
+use std::fmt::Display;
+
 use crate::{Board, Color, Piece, Square};
 
 pub struct Game {
@@ -14,30 +15,29 @@ impl Game {
         }
     }
 
-    pub fn move_(&self, from: &Square, to: &Square) -> Self {
-        let board = self.board.move_(from, to);
-        let turn = self.turn.opponent();
+    pub fn move_(mut self, from: &Square, to: &Square) -> Self {
+        if let Some(piece) = self.board.remove_at(&from) {
+            self.board.set_at(&to, piece);
+        }
 
-        Game { board, turn }
+        self.turn = self.turn.opponent();
+        self
     }
 
     pub fn is_move_valid(&self, from: &Square, to: &Square) -> bool {
         match self.board.piece_at(from) {
             None => false,
             Some(Piece(_, color)) if color != self.turn => false,
-            Some(Piece(piece, _)) => true,
+            Some(Piece(_, _)) => true,
         };
 
         true
     }
+}
 
-    // fn valid_moves(&self, piece:&PieceWithColor,square:&Square)->Bitboard{
-    //     match piece.0 {
-    //         Piece::Pawn => {}
-    //     }
-    // }
-
-    // if !self.board.side(self.turn).contains(from) || self.board.side(self.turn).contains(to) {
-    //     return false;
-    // }
+impl Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.board)?;
+        writeln!(f, "{} to move.", self.turn)
+    }
 }

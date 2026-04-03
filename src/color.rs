@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub const NUM_COLORS: usize = 2;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -14,6 +16,16 @@ impl Color {
             Color::White => Color::Black,
             Color::Black => Color::White,
         }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::White => "white",
+            Self::Black => "black",
+        };
+        write!(f, "{}", s)
     }
 }
 
