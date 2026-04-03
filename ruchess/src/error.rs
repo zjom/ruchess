@@ -13,4 +13,6 @@ pub enum MoveError {
     WrongColor(Square, Color),
     #[error("piece cannot move to {0}")]
     IllegalMove(Square),
+    #[error("king is in check")]
+    StillInCheck,
 }
