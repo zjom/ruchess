@@ -8,10 +8,55 @@ pub enum Color {
 }
 
 impl Color {
+    pub const ALL: [Color; 2] = [Color::White, Color::Black];
     pub fn opponent(self) -> Color {
         match self {
             Color::White => Color::Black,
             Color::Black => Color::White,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ByColor<T>
+where
+    T: Copy,
+{
+    pub black: T,
+    pub white: T,
+}
+
+impl<T> ByColor<T>
+where
+    T: Copy,
+{
+    pub fn get(&self, c: Color) -> &T {
+        match c {
+            Color::White => &self.white,
+            Color::Black => &self.black,
+        }
+    }
+
+    pub fn find<F>(&self, mut predicate: F) -> Option<Color>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        if predicate(&self.white) {
+            Some(Color::White)
+        } else if predicate(&self.black) {
+            Some(Color::Black)
+        } else {
+            None
+        }
+    }
+
+    pub fn update<F>(&mut self, c: Color, f: F)
+    where
+        F: FnOnce(&T) -> T,
+    {
+        match c {
+            Color::White => self.white = f(&self.white),
+            Color::Black => self.black = f(&self.black),
         }
     }
 }

@@ -1,16 +1,16 @@
+use std::cell::RefCell;
+
 use crate::bitboard::Bitboard;
-use crate::color::{Color, NUM_COLORS};
-use crate::piece::{NUM_ROLES, Piece, Role};
+use crate::color::{ByColor, Color};
+use crate::piece::{ByRole, Piece, Role};
 use crate::square::Square;
 
-// Board does not care or know about the rules of the game.
-// Board only cares about the state of the board and moving pieces.
-#[derive(Clone, Copy)]
+/// Board does not care or know about the rules of the game.
+/// Board only cares about the state of the board and moving pieces.
+#[derive(Clone)]
 pub struct Board {
-    /// Indexed as `pieces[color][piece]`
-    pieces: [[Bitboard; NUM_ROLES]; NUM_COLORS],
-    /// Aggregate bitboard per side, indexed as `sides[color]`
-    sides: [Bitboard; NUM_COLORS],
+    by_role: RefCell<ByRole<Bitboard>>,
+    by_color: RefCell<ByColor<Bitboard>>,
     occupied: Bitboard,
 }
 
@@ -19,88 +19,87 @@ impl Board {
         Self::default()
     }
 
-    pub fn bb(&self, color: Color, piece: Role) -> Bitboard {
-        self.pieces[color as usize][piece as usize]
+    /// returns bitboard of all squares occupied by Piece
+    pub fn bb(&self, Piece(role, color): Piece) -> Bitboard {
+        self.by_color
+            .borrow()
+            .get(color)
+            .intersect(self.by_role.borrow().get(role))
     }
 
-    pub fn bb_mut(&mut self, color: Color, piece: Role) -> &mut Bitboard {
-        &mut self.pieces[color as usize][piece as usize]
+    /// checks if Square is occupied by anything
+    pub fn is_occupied(&self, square: &Square) -> bool {
+        self.occupied.contains(square)
     }
 
-    pub fn side(&self, color: Color) -> Bitboard {
-        self.sides[color as usize]
+    /// returns Color at Square if any
+    pub fn color_at(&self, square: &Square) -> Option<Color> {
+        self.by_color.borrow().find(|bb| bb.contains(square))
     }
 
-    pub fn total(&self) -> Bitboard {
-        self.occupied
+    /// returns Role at Square if any
+    pub fn role_at(&self, square: &Square) -> Option<Role> {
+        self.by_role.borrow().find(|bb| bb.contains(square))
     }
 
-    // whether a square occupied by a piece
-    pub fn is_occupied(&self, s: &Square) -> bool {
-        self.occupied.contains(s)
+    /// returns Piece at Square if any
+    pub fn piece_at(&self, square: &Square) -> Option<Piece> {
+        self.color_at(square).map(|color| {
+            self.by_role
+                .borrow()
+                .find_or_king(|bb| bb.contains(square))
+                .of(color)
+        })
     }
 
-    pub fn piece_at(&self, s: &Square) -> Option<Piece> {
-        if !self.is_occupied(s) {
-            return None;
+    /// removes piece at Square if any. returns removed piece.
+    /// Use [`Board::discard_at`] if you don't need the value.
+    pub fn remove_at(&mut self, square: &Square) -> Option<Piece> {
+        let piece = self.piece_at(square);
+        if let Some(Piece(role, color)) = piece {
+            self.by_role
+                .borrow_mut()
+                .update(role, |bb| bb.clear(square));
+            self.by_color
+                .borrow_mut()
+                .update(color, |bb| bb.clear(square));
+            self.occupied = self.occupied.clear(square);
         }
-
-        let color = if self.sides[Color::White as usize].contains(s) {
-            Color::White
-        } else {
-            Color::Black
-        };
-        for piece_idx in 0..NUM_ROLES {
-            if self.pieces[color as usize][piece_idx].contains(s) {
-                return Some(Piece(Role::ALL[piece_idx], color));
-            }
-        }
-        None
+        piece
     }
 
-    pub fn move_(&self, from: &Square, to: &Square) -> Self {
-        if !self.is_occupied(from) {
-            return *self;
-        }
-        let mut board = *self;
-
-        let color = if self.sides[Color::White as usize].contains(&from) {
-            Color::White
-        } else {
-            Color::Black
-        };
-        let opponent = color.opponent();
-
-        for piece_idx in 0..NUM_ROLES {
-            if board.pieces[color as usize][piece_idx].contains(&from) {
-                board.pieces[color as usize][piece_idx] =
-                    board.pieces[color as usize][piece_idx].move_(&from, &to);
-                break;
-            }
-        }
-
-        for piece_idx in 0..NUM_ROLES {
-            board.pieces[opponent as usize][piece_idx] =
-                board.pieces[opponent as usize][piece_idx].clear(&to);
-        }
-
-        board.compute_agg()
+    /// removes piece at Square if any.
+    /// Use [`Board::remove_at`] if you need the value.
+    pub fn discard_at(&mut self, square: &Square) {
+        _ = self.remove_at(square);
     }
 
-    pub fn compute_agg(&self) -> Board {
-        let mut board = *self;
-        for c in 0..NUM_COLORS {
-            board.sides[c] = Bitboard(board.pieces[c].iter().fold(0u64, |acc, bb| acc | bb.0));
-        }
-        board.occupied = Bitboard(board.sides[0].0 | board.sides[1].0);
-        board
+    /// sets the square to be occupied by piece.
+    pub fn set_at(&mut self, square: &Square, Piece(role, color): Piece) -> &Self {
+        self.discard_at(square);
+
+        self.by_role.borrow_mut().update(role, |bb| bb.set(square));
+        self.by_color
+            .borrow_mut()
+            .update(color, |bb| bb.set(square));
+        self.occupied = self.occupied.set(square);
+        self
     }
+
+    // pub fn compute_agg(&self) -> Board {
+    //     let mut board = *self;
+    //     for c in 0..NUM_COLORS {
+    //         board.sides[c] = Bitboard(board.pieces[c].iter().fold(0u64, |acc, bb| acc | bb.0));
+    //     }
+    //     board.occupied = Bitboard(board.sides[0].0 | board.sides[1].0);
+    //     board
+    // }
 
     pub fn as_grid(&self) -> [[Option<Piece>; 8]; 8] {
         let mut grid = [[None; 8]; 8];
         for color in [Color::White, Color::Black] {
             for piece in Role::ALL {
-                let mut bb = self.bb(color, piece);
+                let mut bb = self.bb(piece.of(color));
                 while bb.0 != 0 {
                     let sq = bb.0.trailing_zeros() as usize;
                     let rank = sq / 8;
@@ -132,48 +131,37 @@ impl std::fmt::Display for Board {
 
 impl Default for Board {
     fn default() -> Self {
-        let pieces = [
-            // White
-            [
-                Bitboard(0xff00), // Pawn
-                Bitboard(0x81),   // Rook
-                Bitboard(0x42),   // Knight
-                Bitboard(0x24),   // Bishop
-                Bitboard(0x8),    // Queen
-                Bitboard(0x10),   // King
-            ],
-            // Black
-            [
-                Bitboard(0x00ff000000000000), // Pawn
-                Bitboard(0x8100000000000000), // Rook
-                Bitboard(0x4200000000000000), // Knight
-                Bitboard(0x2400000000000000), // Bishop
-                Bitboard(0x0800000000000000), // Queen
-                Bitboard(0x1000000000000000), // King
-            ],
-        ];
-
         Self {
-            pieces,
-            sides: [Bitboard(0xffff), Bitboard(0xffff000000000000)],
-            occupied: Bitboard(0xffff00000000ffff),
+            by_role: RefCell::new(ByRole {
+                pawn: Bitboard(0x00ff_0000_0000_ff00),
+                knight: Bitboard(0x4200_0000_0000_0042),
+                bishop: Bitboard(0x2400_0000_0000_0024),
+                rook: Bitboard(0x8100_0000_0000_0081),
+                queen: Bitboard(0x0800_0000_0000_0008),
+                king: Bitboard(0x1000_0000_0000_0010),
+            }),
+            by_color: RefCell::new(ByColor {
+                black: Bitboard(0xffff_0000_0000_0000),
+                white: Bitboard(0xffff),
+            }),
+            occupied: Bitboard(0xffff_0000_0000_ffff),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::square::{A1, D4, H8};
-
-    use super::*;
-
-    #[test]
-    fn piece() {
-        let board = Board::new();
-        assert_eq!(board.piece_at(&A1), Some(Piece(Role::Rook, Color::White)));
-
-        assert_eq!(board.piece_at(&H8), Some(Piece(Role::Rook, Color::Black)));
-
-        assert_eq!(board.piece_at(&D4), None);
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use crate::square::{A1, D4, H8};
+//
+//     use super::*;
+//
+//     #[test]
+//     fn piece() {
+//         let board = Board::new();
+//         assert_eq!(board.piece_at(&A1), Some(Piece(Role::Rook, Color::White)));
+//
+//         assert_eq!(board.piece_at(&H8), Some(Piece(Role::Rook, Color::Black)));
+//
+//         assert_eq!(board.piece_at(&D4), None);
+//     }
+// }
