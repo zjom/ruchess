@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use thiserror::Error;
 
@@ -19,6 +19,7 @@ pub enum MoveError {
 pub struct Game {
     board: Board,
     turn: Color,
+    en_passant: Option<Square>,
 }
 
 impl Game {
@@ -26,6 +27,7 @@ impl Game {
         Self {
             board: Board::default(),
             turn: Color::White,
+            en_passant: None,
         }
     }
 
@@ -40,7 +42,7 @@ impl Game {
             return Err(MoveError::WrongColor(mv.from, color));
         }
 
-        let candidates = pseudo_legal_moves(piece, &mv.from, &self.board);
+        let candidates = pseudo_legal_moves(piece, &mv.from, &self.board, self.en_passant);
         if !candidates.contains(&mv.to) {
             return Err(MoveError::IllegalMove(mv.to));
         }
@@ -50,8 +52,28 @@ impl Game {
 
     pub fn make_move(&mut self, mv: Move) -> Result<(), MoveError> {
         self.validate_move(&mv)?;
+        let prev_en_passant = self.en_passant;
         if let Some(piece) = self.board.remove_at(&mv.from) {
+            self.en_passant = match piece {
+                Piece(Role::Pawn, Color::White) if mv.to.0 == mv.from.0 + 16 => {
+                    Some(Square(mv.from.0 + 8)) // the square white passed through
+                }
+                Piece(Role::Pawn, Color::Black) if mv.from.0 == mv.to.0 + 16 => {
+                    Some(Square(mv.from.0 - 8)) // the square black passed through
+                }
+                _ => None,
+            };
             self.board.set_at(&mv.to, piece);
+
+            if matches!(piece, Piece(Role::Pawn, _)) && Some(mv.to) == prev_en_passant {
+                // the captured pawn sits one rank behind the destination (from mover's perspective)
+                let captured_pawn_sq = match self.turn {
+                    // turn is still the mover's color here
+                    Color::White => Square(mv.to.0 - 8),
+                    Color::Black => Square(mv.to.0 + 8),
+                };
+                self.board.discard_at(&captured_pawn_sq);
+            }
         }
         self.turn = self.turn.opponent();
         Ok(())
@@ -71,13 +93,32 @@ impl Display for Game {
     }
 }
 
-fn pseudo_legal_moves(piece: Piece, from: &Square, board: &Board) -> Bitboard {
+impl Debug for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{}", self.board)?;
+        writeln!(f, "en_passant: {:?}", self.en_passant)?;
+        writeln!(f, "{} to move.", self.turn)
+    }
+}
+
+fn pseudo_legal_moves(
+    piece: Piece,
+    from: &Square,
+    board: &Board,
+    en_passant: Option<Square>,
+) -> Bitboard {
     let Piece(role, color) = piece;
     let occupied = board.occupied();
     let own = board.color_bb(color);
 
     let candidates = match role {
-        Role::Pawn => pawn_moves(color, from, occupied, board.color_bb(color.opponent())),
+        Role::Pawn => pawn_moves(
+            color,
+            from,
+            occupied,
+            board.color_bb(color.opponent()),
+            en_passant,
+        ),
         Role::Knight => knight_moves(from),
         Role::Bishop => bishop_moves(from, occupied),
         Role::Rook => rook_moves(from, occupied),
@@ -89,7 +130,13 @@ fn pseudo_legal_moves(piece: Piece, from: &Square, board: &Board) -> Bitboard {
     Bitboard(candidates.0 & !own.0)
 }
 
-fn pawn_moves(color: Color, from: &Square, occupied: Bitboard, enemies: Bitboard) -> Bitboard {
+fn pawn_moves(
+    color: Color,
+    from: &Square,
+    occupied: Bitboard,
+    enemies: Bitboard,
+    en_passant: Option<Square>,
+) -> Bitboard {
     let idx = from.0 as i32;
     let file = idx % 8;
     let rank = idx / 8;
@@ -128,7 +175,7 @@ fn pawn_moves(color: Color, from: &Square, occupied: Bitboard, enemies: Bitboard
             continue;
         }
         let sq = Square(cap_idx as u8);
-        if enemies.contains(&sq) {
+        if enemies.contains(&sq) || en_passant == Some(sq) {
             targets = targets.set(&sq);
         }
     }
