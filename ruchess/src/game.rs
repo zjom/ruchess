@@ -50,6 +50,14 @@ impl Game {
         Ok(())
     }
 
+    pub fn turn(&self) -> Color {
+        self.turn
+    }
+
+    pub fn grid(&self) -> [[Option<Piece>; 8]; 8] {
+        self.board.as_grid()
+    }
+
     pub fn make_move(&mut self, mv: Move) -> Result<(), MoveError> {
         self.validate_move(&mv)?;
         let prev_en_passant = self.en_passant;
