@@ -86,6 +86,14 @@ impl Board {
         self
     }
 
+    pub fn occupied(&self) -> Bitboard {
+        self.occupied
+    }
+
+    pub fn color_bb(&self, color: Color) -> Bitboard {
+        *self.by_color.borrow().get(color)
+    }
+
     // pub fn compute_agg(&self) -> Board {
     //     let mut board = *self;
     //     for c in 0..NUM_COLORS {

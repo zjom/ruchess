@@ -1,16 +1,22 @@
 use std::{error::Error, io};
 
-use ruchess::Square;
+use ruchess::{Game, Move};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut board = ruchess::Board::new();
+    let mut game = Game::new();
 
     loop {
-        println!("{}", board);
-        let from: Square = get_input("From: ").parse()?;
-        let to: Square = get_input("To: ").parse()?;
-        if let Some(piece) = board.remove_at(&from) {
-            board.set_at(&to, piece);
+        println!("{}", game);
+        let input = get_input("Move (e.g. e2e4): ");
+        let mv: Move = match input.parse() {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("Error: {e}");
+                continue;
+            }
+        };
+        if let Err(e) = game.make_move(mv) {
+            eprintln!("Invalid move: {e}");
         }
     }
 }
