@@ -1,0 +1,10 @@
+[package]
+name = "ruchess"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.44"
+derive_more = { version = "2.1.1", features = ["full"] }
+ruchess_derive = { path = "../../ruchess_derive" }
+thiserror = "2.0.18"

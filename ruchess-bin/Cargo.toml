@@ -1,0 +1,11 @@
+[package]
+name = "ruchess-bin"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "ruchess"
+path = "src/main.rs"
+
+[dependencies]
+ruchess = { path = "../ruchess" }

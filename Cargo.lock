@@ -186,6 +186,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruchess-bin"
+version = "0.1.0"
+dependencies = [
+ "ruchess",
+]
+
+[[package]]
 name = "ruchess_derive"
 version = "0.1.0"
 dependencies = [
