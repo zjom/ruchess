@@ -33,6 +33,10 @@ impl Bitboard {
         self.clear(from).set(to)
     }
 
+    pub fn intersect(&self, other: &Bitboard) -> Bitboard {
+        Bitboard(self.0 & other.0)
+    }
+
     pub fn as_grid(&self) -> [[bool; 8]; 8] {
         let mut grid = [[false; 8]; 8];
         for rank in (0..8).rev() {
@@ -72,6 +76,13 @@ impl std::ops::BitAnd for Bitboard {
     type Output = Bitboard;
     fn bitand(self, rhs: Bitboard) -> Bitboard {
         Bitboard(self.0 & rhs.0)
+    }
+}
+
+impl std::ops::BitOr for Bitboard {
+    type Output = Bitboard;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Bitboard(self.0 | rhs.0)
     }
 }
 
