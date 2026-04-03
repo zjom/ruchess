@@ -1,4 +1,4 @@
-use crate::{Bitboard, color::Color};
+use crate::color::Color;
 
 pub const NUM_ROLES: usize = 6;
 
