@@ -9,7 +9,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", board);
         let from: Square = get_input("From: ").parse()?;
         let to: Square = get_input("To: ").parse()?;
-        board = board.move_(&from, &to);
+        if let Some(piece) = board.remove_at(&from) {
+            board.set_at(&to, piece);
+        }
     }
 }
 
