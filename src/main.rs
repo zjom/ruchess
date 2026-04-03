@@ -1,4 +1,7 @@
-use std::{error::Error, io};
+use std::{
+    error::Error,
+    io::{self, Write},
+};
 
 use ruchess::{Game, Move};
 
@@ -6,7 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut game = Game::new();
 
     loop {
-        println!("{}", game);
+        println!("{:?}", game);
         let input = get_input("Move (e.g. e2e4): ");
         let mv: Move = match input.parse() {
             Ok(m) => m,
@@ -22,8 +25,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn get_input(prompt: &str) -> String {
-    println!("{}", prompt);
-
+    print!("{}", prompt);
+    io::stdout().flush().expect("Failed to flush stdout");
     let mut input = String::new();
 
     io::stdin()
