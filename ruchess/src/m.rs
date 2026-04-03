@@ -4,6 +4,7 @@ use std::str::FromStr;
 use crate::error::ParseSquareError;
 use crate::{Bitboard, Board, Color, Piece, Role, Square};
 
+#[derive(Clone, Copy)]
 pub struct Move {
     pub from: Square,
     pub to: Square,

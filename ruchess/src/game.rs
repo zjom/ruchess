@@ -7,6 +7,8 @@ pub struct Game {
     board: Board,
     turn: Color,
     en_passant: Option<Square>,
+    in_check: Option<Color>,
+    history: Vec<Move>,
 }
 
 impl Game {
@@ -15,6 +17,8 @@ impl Game {
             board: Board::default(),
             turn: Color::White,
             en_passant: None,
+            in_check: None,
+            history: vec![],
         }
     }
 
@@ -45,6 +49,10 @@ impl Game {
         self.board.as_grid()
     }
 
+    pub fn history(&self) -> Vec<Move> {
+        self.history.clone()
+    }
+
     pub fn make_move(&mut self, mv: Move) -> Result<(), MoveError> {
         self.validate_move(&mv)?;
         let prev_en_passant = self.en_passant;
@@ -70,6 +78,7 @@ impl Game {
                 self.board.discard_at(&captured_pawn_sq);
             }
         }
+        self.history.push(mv);
         self.turn = self.turn.opponent();
         Ok(())
     }
