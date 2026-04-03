@@ -8,4 +8,5 @@ name = "ruchess"
 path = "src/main.rs"
 
 [dependencies]
+ratatui = "0.30.0"
 ruchess = { path = "../ruchess" }
