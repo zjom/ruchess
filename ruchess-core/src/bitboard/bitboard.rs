@@ -9,6 +9,9 @@ use crate::square::Square;
 pub struct Bitboard(pub u64);
 
 impl Bitboard {
+    pub const EMPTY: Bitboard = Bitboard(0);
+    pub const ALL: Bitboard = Bitboard(u64::MAX);
+
     pub fn contains(&self, square: &Square) -> bool {
         let mask = 1u64 << square.0;
         (self.0 & mask) != 0
@@ -117,9 +120,6 @@ impl Display for Bitboard {
         write!(f, "{}", self.0)
     }
 }
-
-pub const EMPTY: Bitboard = Bitboard(0);
-pub const ALL: Bitboard = Bitboard(u64::MAX);
 
 #[cfg(test)]
 mod tests {
