@@ -110,18 +110,23 @@ impl Board {
     fn rooks(&self) -> Bitboard {
         self.bb_role(Role::Rook)
     }
+
     fn queens(&self) -> Bitboard {
         self.bb_role(Role::Queen)
     }
+
     fn bishops(&self) -> Bitboard {
         self.bb_role(Role::Bishop)
     }
+
     fn knights(&self) -> Bitboard {
         self.bb_role(Role::Knight)
     }
+
     fn pawns(&self) -> Bitboard {
         self.bb_role(Role::Pawn)
     }
+
     fn kings(&self) -> Bitboard {
         self.bb_role(Role::King)
     }
@@ -137,12 +142,14 @@ impl Board {
     fn queen_attacks(&self, sq: &Square) -> Bitboard {
         self.bishop_attacks(sq) ^ self.rook_attacks(sq)
     }
+
     fn pawn_attacks(&self, color: Color, sq: &Square) -> Bitboard {
         Bitboard(match color {
             Color::White => self.attacks.white_pawn_attacks[sq.0 as usize],
             Color::Black => self.attacks.black_pawn_attacks[sq.0 as usize],
         })
     }
+
     fn king_attacks(&self, sq: &Square) -> Bitboard {
         Bitboard(self.attacks.king_attacks[sq.0 as usize])
     }
