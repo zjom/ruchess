@@ -96,10 +96,6 @@ impl Board {
         self.occupied
     }
 
-    pub fn color_bb(&self, color: Color) -> Bitboard {
-        *self.by_color.borrow().get(color)
-    }
-
     pub fn attackers(&self, sq: &Square, attacker: Color) -> Bitboard {
         self.bycolor(attacker)
             & (self.rook_attacks(sq) & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))

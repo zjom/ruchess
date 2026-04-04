@@ -38,14 +38,14 @@ pub fn pseudo_legal_moves(
 ) -> Bitboard {
     let Piece(role, color) = piece;
     let occupied = board.occupied();
-    let own = board.color_bb(color);
+    let own = board.bycolor(color);
 
     let candidates = match role {
         Role::Pawn => pawn_moves(
             color,
             from,
             occupied,
-            board.color_bb(color.opponent()),
+            board.bycolor(color.opponent()),
             en_passant,
         ),
         Role::Knight => knight_moves(from),
