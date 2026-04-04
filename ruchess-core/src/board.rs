@@ -98,11 +98,30 @@ impl Board {
 
     pub fn attackers(&self, sq: &Square, attacker: Color) -> Bitboard {
         self.bycolor(attacker)
-            & (self.rook_attacks(sq) & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))
-                | self.bishop_attacks(sq) & (self.byrole(Role::Bishop) ^ self.byrole(Role::Queen))
-                | self.knight_attacks(sq) & self.byrole(Role::Knight)
-                | self.king_attacks(sq) & self.byrole(Role::King)
-                | self.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
+            & (self.rook_attacks(sq) & (self.rooks() ^ self.queens())
+                | self.bishop_attacks(sq) & (self.bishops() ^ self.queens())
+                | self.knight_attacks(sq) & self.knights()
+                | self.king_attacks(sq) & self.kings()
+                | self.pawn_attacks(attacker.opponent(), sq) & self.pawns())
+    }
+
+    fn rooks(&self) -> Bitboard {
+        self.byrole(Role::Rook)
+    }
+    fn queens(&self) -> Bitboard {
+        self.byrole(Role::Queen)
+    }
+    fn bishops(&self) -> Bitboard {
+        self.byrole(Role::Bishop)
+    }
+    fn knights(&self) -> Bitboard {
+        self.byrole(Role::Knight)
+    }
+    fn pawns(&self) -> Bitboard {
+        self.byrole(Role::Pawn)
+    }
+    fn kings(&self) -> Bitboard {
+        self.byrole(Role::King)
     }
 
     fn rook_attacks(&self, sq: &Square) -> Bitboard {
