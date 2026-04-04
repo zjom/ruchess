@@ -107,6 +107,11 @@ impl Board {
                 | self.pawn_attacks(attacker.opponent(), sq) & self.pawns())
     }
 
+    // is a king of this color in check
+    pub fn is_check(&self, color: Color) -> bool {
+        self.attackers(&self.king(color), !color) != Bitboard::EMPTY
+    }
+
     fn king(&self, color: Color) -> Square {
         (self.kings() & self.bb_color(color)).as_square()
     }
