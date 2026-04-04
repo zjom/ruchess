@@ -29,6 +29,13 @@ impl Display for Color {
     }
 }
 
+impl std::ops::Not for Color {
+    type Output = Color;
+    fn not(self) -> Self::Output {
+        self.opponent()
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ByColor<T>
 where
