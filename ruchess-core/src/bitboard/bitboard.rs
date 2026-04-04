@@ -86,6 +86,13 @@ impl std::ops::BitOr for Bitboard {
     }
 }
 
+impl std::ops::BitXor for Bitboard {
+    type Output = Bitboard;
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Bitboard(self.0 ^ rhs.0)
+    }
+}
+
 impl From<u64> for Bitboard {
     fn from(value: u64) -> Self {
         Bitboard(value)
