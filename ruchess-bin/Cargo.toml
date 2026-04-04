@@ -11,4 +11,4 @@ path = "src/main.rs"
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
 ratatui = "0.30.0"
-ruchess = { path = "../ruchess" }
+ruchess-core = { path = "../ruchess-core" }

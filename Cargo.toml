@@ -1,3 +1,3 @@
 [workspace]
-members = ["ruchess", "ruchess-bin"]
+members = ["ruchess-core", "ruchess-bin"]
 resolver = "2"

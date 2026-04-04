@@ -9,7 +9,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget},
 };
-use ruchess::{Color as ChessColor, Game, Move, Piece, Role, Square};
+use ruchess_core::{Color as ChessColor, Game, Move, Piece, Role, Square};
 
 fn main() -> io::Result<()> {
     ratatui::run(|terminal| App::default().run(terminal))
