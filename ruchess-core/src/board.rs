@@ -21,15 +21,17 @@ impl Board {
     }
 
     /// returns bitboard of all squares occupied by Piece
-    pub fn bb(&self, Piece(role, color): Piece) -> Bitboard {
-        self.bycolor(color) & self.byrole(role)
+    pub fn bb_piece(&self, Piece(role, color): Piece) -> Bitboard {
+        self.bb_color(color) & self.bb_role(role)
     }
 
-    pub fn bycolor(&self, color: Color) -> Bitboard {
+    /// returns bitboard of all squares occupied by Color
+    pub fn bb_color(&self, color: Color) -> Bitboard {
         *self.by_color.borrow().get(color)
     }
 
-    pub fn byrole(&self, role: Role) -> Bitboard {
+    /// returns bitboard of all squares occupied by Role
+    pub fn bb_role(&self, role: Role) -> Bitboard {
         *self.by_role.borrow().get(role)
     }
 
@@ -97,7 +99,7 @@ impl Board {
     }
 
     pub fn attackers(&self, sq: &Square, attacker: Color) -> Bitboard {
-        self.bycolor(attacker)
+        self.bb_color(attacker)
             & (self.rook_attacks(sq) & (self.rooks() ^ self.queens())
                 | self.bishop_attacks(sq) & (self.bishops() ^ self.queens())
                 | self.knight_attacks(sq) & self.knights()
@@ -106,22 +108,22 @@ impl Board {
     }
 
     fn rooks(&self) -> Bitboard {
-        self.byrole(Role::Rook)
+        self.bb_role(Role::Rook)
     }
     fn queens(&self) -> Bitboard {
-        self.byrole(Role::Queen)
+        self.bb_role(Role::Queen)
     }
     fn bishops(&self) -> Bitboard {
-        self.byrole(Role::Bishop)
+        self.bb_role(Role::Bishop)
     }
     fn knights(&self) -> Bitboard {
-        self.byrole(Role::Knight)
+        self.bb_role(Role::Knight)
     }
     fn pawns(&self) -> Bitboard {
-        self.byrole(Role::Pawn)
+        self.bb_role(Role::Pawn)
     }
     fn kings(&self) -> Bitboard {
-        self.byrole(Role::King)
+        self.bb_role(Role::King)
     }
 
     fn rook_attacks(&self, sq: &Square) -> Bitboard {
@@ -153,7 +155,7 @@ impl Board {
         let mut grid = [[None; 8]; 8];
         for color in [Color::White, Color::Black] {
             for piece in Role::ALL {
-                let mut bb = self.bb(piece.of(color));
+                let mut bb = self.bb_piece(piece.of(color));
                 while bb.0 != 0 {
                     let sq = bb.0.trailing_zeros() as usize;
                     let rank = sq / 8;
