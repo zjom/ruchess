@@ -40,6 +40,20 @@ impl Bitboard {
         Bitboard(self.0 & other.0)
     }
 
+    pub fn fold<B, F>(&self, init: B, f: F) -> B
+    where
+        F: Fn(B, Bitboard) -> B,
+    {
+        let mut b = self.0;
+        let mut result = init;
+        while b != 0 {
+            let lsb = b & b.wrapping_neg(); // isolate lowest set bit
+            result = f(result, Bitboard(lsb));
+            b &= b - 1; // clear lowest set bit
+        }
+        result
+    }
+
     /// maps itself to Square
     /// bitboard must only contain 1 bit that is on
     pub fn as_square(&self) -> Square {
