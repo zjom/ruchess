@@ -1,5 +1,6 @@
 use crate::bitboard::magic::Magic;
 
+#[derive(Clone, Copy)]
 pub struct Attacks {
     pub ranks: [u64; 8],
     pub files: [u64; 8],
