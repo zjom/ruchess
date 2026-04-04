@@ -77,7 +77,6 @@ where
             Role::Pawn => self.pawn = f(&self.pawn),
             Role::Rook => self.rook = f(&self.rook),
             Role::Bishop => self.bishop = f(&self.bishop),
-
             Role::Knight => self.knight = f(&self.knight),
             Role::Queen => self.queen = f(&self.queen),
             Role::King => self.king = f(&self.king),
@@ -122,6 +121,20 @@ where
             Role::Queen
         } else {
             Role::King
+        }
+    }
+
+    pub fn map<F>(&self, f: F) -> Self
+    where
+        F: Fn(T) -> T,
+    {
+        Self {
+            pawn: f(self.pawn),
+            rook: f(self.rook),
+            knight: f(self.knight),
+            bishop: f(self.bishop),
+            queen: f(self.queen),
+            king: f(self.king),
         }
     }
 }
