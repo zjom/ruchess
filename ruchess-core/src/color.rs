@@ -78,4 +78,14 @@ where
             Color::Black => self.black = f(&self.black),
         }
     }
+
+    pub fn map<F>(&self, f: F) -> Self
+    where
+        F: Fn(T) -> T,
+    {
+        Self {
+            black: f(self.black),
+            white: f(self.white),
+        }
+    }
 }
