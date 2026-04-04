@@ -37,6 +37,13 @@ impl Bitboard {
         Bitboard(self.0 & other.0)
     }
 
+    /// maps itself to Square
+    /// bitboard must only contain 1 bit that is on
+    pub fn as_square(&self) -> Square {
+        debug_assert_eq!(self.count_ones(), 1);
+        Square(self.trailing_zeros() as u8)
+    }
+
     pub fn as_grid(&self) -> [[bool; 8]; 8] {
         let mut grid = [[false; 8]; 8];
         for rank in (0..8).rev() {
