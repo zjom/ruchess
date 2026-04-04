@@ -4,6 +4,7 @@ pub mod color;
 pub mod error;
 pub mod game;
 pub mod m;
+pub mod outcome;
 pub mod piece;
 pub mod square;
 
