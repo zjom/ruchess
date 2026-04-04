@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::m::{Move, pseudo_legal_moves};
+use crate::outcome::Outcome;
 use crate::{Board, Color, MoveError, Piece, Role, Square};
 
 pub struct Game {
@@ -8,7 +9,7 @@ pub struct Game {
     turn: Color,
     en_passant: Option<Square>,
     in_check: Option<Color>,
-    history: Vec<Move>,
+    outcome: Outcome,
 }
 
 impl Game {
@@ -18,7 +19,7 @@ impl Game {
             turn: Color::White,
             en_passant: None,
             in_check: None,
-            history: vec![],
+            outcome: Outcome::Ongoing,
         }
     }
 
@@ -49,10 +50,6 @@ impl Game {
         self.board.as_grid()
     }
 
-    pub fn history(&self) -> Vec<Move> {
-        self.history.clone()
-    }
-
     pub fn make_move(&mut self, mv: Move) -> Result<(), MoveError> {
         self.validate_move(&mv)?;
         let prev_en_passant = self.en_passant;
@@ -78,7 +75,6 @@ impl Game {
                 self.board.discard_at(&captured_pawn_sq);
             }
         }
-        self.history.push(mv);
         self.turn = self.turn.opponent();
         Ok(())
     }
