@@ -107,6 +107,10 @@ impl Board {
                 | self.pawn_attacks(attacker.opponent(), sq) & self.pawns())
     }
 
+    fn king(&self, color: Color) -> Square {
+        (self.kings() & self.bb_color(color)).as_square()
+    }
+
     fn rooks(&self) -> Bitboard {
         self.bb_role(Role::Rook)
     }
