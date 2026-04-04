@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::bitboard::Bitboard;
+use crate::bitboard::{Attacks, Bitboard};
 use crate::color::{ByColor, Color};
 use crate::piece::{ByRole, Piece, Role};
 use crate::square::Square;
@@ -12,6 +12,7 @@ pub struct Board {
     by_role: RefCell<ByRole<Bitboard>>,
     by_color: RefCell<ByColor<Bitboard>>,
     occupied: Bitboard,
+    attacks: Attacks,
 }
 
 impl Board {
@@ -21,10 +22,15 @@ impl Board {
 
     /// returns bitboard of all squares occupied by Piece
     pub fn bb(&self, Piece(role, color): Piece) -> Bitboard {
-        self.by_color
-            .borrow()
-            .get(color)
-            .intersect(self.by_role.borrow().get(role))
+        self.bycolor(color) & self.byrole(role)
+    }
+
+    pub fn bycolor(&self, color: Color) -> Bitboard {
+        *self.by_color.borrow().get(color)
+    }
+
+    pub fn byrole(&self, role: Role) -> Bitboard {
+        *self.by_role.borrow().get(role)
     }
 
     /// checks if Square is occupied by anything
@@ -94,14 +100,39 @@ impl Board {
         *self.by_color.borrow().get(color)
     }
 
-    // pub fn compute_agg(&self) -> Board {
-    //     let mut board = *self;
-    //     for c in 0..NUM_COLORS {
-    //         board.sides[c] = Bitboard(board.pieces[c].iter().fold(0u64, |acc, bb| acc | bb.0));
-    //     }
-    //     board.occupied = Bitboard(board.sides[0].0 | board.sides[1].0);
-    //     board
-    // }
+    pub fn attackers(&self, sq: &Square, attacker: Color) -> Bitboard {
+        self.bycolor(attacker)
+            & (self.rook_attacks(sq) & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))
+                | self.bishop_attacks(sq) & (self.byrole(Role::Bishop) ^ self.byrole(Role::Queen))
+                | self.knight_attacks(sq) & self.byrole(Role::Knight)
+                | self.king_attacks(sq) & self.byrole(Role::King)
+                | self.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
+    }
+
+    fn rook_attacks(&self, sq: &Square) -> Bitboard {
+        Bitboard(self.attacks.rook_attacks(sq.0 as usize, self.occupied.0))
+    }
+
+    fn bishop_attacks(&self, sq: &Square) -> Bitboard {
+        Bitboard(self.attacks.bishop_attacks(sq.0 as usize, self.occupied.0))
+    }
+
+    fn queen_attacks(&self, sq: &Square) -> Bitboard {
+        self.bishop_attacks(sq) ^ self.rook_attacks(sq)
+    }
+    fn pawn_attacks(&self, color: Color, sq: &Square) -> Bitboard {
+        Bitboard(match color {
+            Color::White => self.attacks.white_pawn_attacks[sq.0 as usize],
+            Color::Black => self.attacks.black_pawn_attacks[sq.0 as usize],
+        })
+    }
+    fn king_attacks(&self, sq: &Square) -> Bitboard {
+        Bitboard(self.attacks.king_attacks[sq.0 as usize])
+    }
+
+    fn knight_attacks(&self, sq: &Square) -> Bitboard {
+        Bitboard(self.attacks.knight_attacks[sq.0 as usize])
+    }
 
     pub fn as_grid(&self) -> [[Option<Piece>; 8]; 8] {
         let mut grid = [[None; 8]; 8];
@@ -153,6 +184,7 @@ impl Default for Board {
                 white: Bitboard(0xffff),
             }),
             occupied: Bitboard(0xffff_0000_0000_ffff),
+            attacks: Attacks::new(),
         }
     }
 }
