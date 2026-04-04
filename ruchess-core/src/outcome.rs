@@ -15,7 +15,8 @@ pub enum WinReason {
 pub enum DrawReason {
     Stalemate,
     InsufficientMaterial,
-    FiftyMoveRule, // https://en.wikipedia.org/wiki/Fifty-move_rule
+    FiftyMoveRule,       // https://en.wikipedia.org/wiki/Fifty-move_rule
+    SeventyFiveMoveRule, // https://en.wikipedia.org/wiki/Fifty-move_rule#Seventy-five-move_rule
     Repetition,
     Agreement,
 }
