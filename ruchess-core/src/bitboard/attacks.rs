@@ -1,4 +1,4 @@
-use crate::attacks::magic::Magic;
+use crate::bitboard::magic::Magic;
 
 pub struct Attacks {
     pub ranks: [u64; 8],
