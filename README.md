@@ -68,5 +68,6 @@ cargo run <path to repo root>
   - [ ] [ACN](<https://en.wikipedia.org/wiki/Algebraic_notation_(chess)>)
   - [ ] [FEN](https://en.wikipedia.org/wiki/Forsyth–Edwards_Notation)
   - [ ] [PGN](https://en.wikipedia.org/wiki/Portable_Game_Notation)
+- [ ] move history
 
 **Engine**
