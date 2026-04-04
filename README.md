@@ -1,17 +1,20 @@
 # Ruchess
 
 > [!IMPORTANT]
-> THIS PROJECT IS A WIP.
+> THIS PROJECT IS UNDER ACTIVE DEVELOPMENT.
 > THERE ARE CORE FUNCTIONALITIES THAT HAVE NOT BEEN IMPLEMENTED YET
 > DO NOT USE.
 
-Chess engine written in Rust.
+Chess library, tui and engine written in Rust.
 
 Contains:
-- core chess engine in `./ruchess/`
-- tui in `./ruchess-bin/`
+
+- core chess library in [ruchess-core](ruchess-core/)
+- tui in [./ruchess-bin](ruchess-bin/)
+- engine in [./ruchess-engine](./ruchess-engine) !NOT IMPLEMENTED
 
 ## Usage
+
 Ruchess is not yet published on crates.io.
 
 First clone this repo.
@@ -24,7 +27,8 @@ git clone github.com/zjom/ruchess --head
 
 Update your `cargo.toml` file with a `dependencies` section pointing at the path of where you cloned this project.
 
-Example: 
+Example:
+
 ```toml
 [package]
 name = "urpackage"
@@ -32,11 +36,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ruchess = { path = "<path to repo root>/ruchess" }
+ruchess-core = { path = "<path to repo root>/ruchess-core" }
 ```
 
 ```rust
-use ruchess::{Game, Move};
+use ruchess_core::{Game, Move};
 
 fn main()->{
     let mut game = Game::new();
@@ -47,10 +51,22 @@ fn main()->{
 }
 ```
 
-
 ### As a TUI
 
 ```sh
-cargo run
+cargo run <path to repo root>
 ```
 
+## Roadmap
+
+**CORE**
+
+- [ ] enforce checks
+- [ ] end of game determination
+- [ ] optimise attack calculations using precomputed magic numbers
+- [ ] serialize/deserialize game/move encoding formats
+  - [ ] [ACN](<https://en.wikipedia.org/wiki/Algebraic_notation_(chess)>)
+  - [ ] [FEN](https://en.wikipedia.org/wiki/Forsyth–Edwards_Notation)
+  - [ ] [PGN](https://en.wikipedia.org/wiki/Portable_Game_Notation)
+
+**Engine**
