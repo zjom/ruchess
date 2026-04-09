@@ -19,6 +19,8 @@ impl Magic {
         ((self.factor.wrapping_mul(occupied & self.mask)) >> (64 - 9)) as usize + self.offset
     }
 
+    // THESE MAGIC NUMBERS HAVE BEEN BORROWED FROM LICHESS's SCALACHESS
+    // https://github.com/lichess-org/scalachess/blob/master/core/src/main/scala/bitboard/Magic.scala
     pub const ROOK: [Self; 64] = [
         Self::new(0x000101010101017e, 0x00280077ffebfffe, 26304),
         Self::new(0x000202020202027c, 0x2004010201097fff, 35520),
