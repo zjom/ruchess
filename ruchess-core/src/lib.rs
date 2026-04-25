@@ -6,6 +6,7 @@ pub mod game;
 pub mod m;
 pub mod outcome;
 pub mod piece;
+pub mod role;
 pub mod square;
 
 pub use bitboard::Bitboard;
@@ -14,5 +15,6 @@ pub use color::{Color, NUM_COLORS};
 pub use error::{MoveError, ParseSquareError};
 pub use game::Game;
 pub use m::Move;
-pub use piece::{NUM_ROLES, Piece, Role};
+pub use piece::Piece;
+pub use role::{NUM_ROLES, Role};
 pub use square::Square;

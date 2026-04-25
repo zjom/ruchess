@@ -1,3 +1,5 @@
+use crate::Bitboard;
+
 pub struct Magic {
     pub factor: u64,
     pub offset: usize,
@@ -12,11 +14,11 @@ impl Magic {
             mask,
         }
     }
-    pub fn rook_index(&self, occupied: u64) -> usize {
-        ((self.factor.wrapping_mul(occupied & self.mask)) >> (64 - 12)) as usize + self.offset
+    pub const fn rook_index(&self, occupied: Bitboard) -> usize {
+        ((self.factor.wrapping_mul(occupied.0 & self.mask)) >> (64 - 12)) as usize + self.offset
     }
-    pub fn bishop_index(&self, occupied: u64) -> usize {
-        ((self.factor.wrapping_mul(occupied & self.mask)) >> (64 - 9)) as usize + self.offset
+    pub const fn bishop_index(&self, occupied: Bitboard) -> usize {
+        ((self.factor.wrapping_mul(occupied.0 & self.mask)) >> (64 - 9)) as usize + self.offset
     }
 
     // THESE MAGIC NUMBERS HAVE BEEN BORROWED FROM LICHESS's SCALACHESS

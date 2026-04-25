@@ -1,3 +1,4 @@
+use crate::Bitboard;
 use std::{ops::Deref, str::FromStr};
 
 use crate::error::ParseSquareError;
@@ -19,6 +20,12 @@ impl Deref for Square {
     type Target = u8;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl From<Square> for Bitboard {
+    fn from(value: Square) -> Self {
+        Bitboard(value.0.into())
     }
 }
 

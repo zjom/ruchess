@@ -81,13 +81,13 @@ pub fn pawn_moves(
     // Single and double push (only if path is clear)
     if (0..64).contains(&push_idx) {
         let sq = Square(push_idx as u8);
-        if !occupied.contains(&sq) {
-            targets = targets.set(&sq);
+        if !occupied.contains(sq) {
+            targets = targets.set(sq);
             if rank == start_rank {
                 let push2_idx = idx + dir * 16;
                 let sq2 = Square(push2_idx as u8);
-                if !occupied.contains(&sq2) {
-                    targets = targets.set(&sq2);
+                if !occupied.contains(sq2) {
+                    targets = targets.set(sq2);
                 }
             }
         }
@@ -104,8 +104,8 @@ pub fn pawn_moves(
             continue;
         }
         let sq = Square(cap_idx as u8);
-        if enemies.contains(&sq) || en_passant == Some(sq) {
-            targets = targets.set(&sq);
+        if enemies.contains(sq) || en_passant == Some(sq) {
+            targets = targets.set(sq);
         }
     }
 
@@ -131,7 +131,7 @@ pub fn knight_moves(from: &Square) -> Bitboard {
         let new_file = file + df;
         let new_rank = rank + dr;
         if (0..8).contains(&new_file) && (0..8).contains(&new_rank) {
-            targets = targets.set(&Square((new_rank * 8 + new_file) as u8));
+            targets = targets.set(Square((new_rank * 8 + new_file) as u8));
         }
     }
 
@@ -152,7 +152,7 @@ pub fn king_moves(from: &Square) -> Bitboard {
             let new_file = file + df;
             let new_rank = rank + dr;
             if (0..8).contains(&new_file) && (0..8).contains(&new_rank) {
-                targets = targets.set(&Square((new_rank * 8 + new_file) as u8));
+                targets = targets.set(Square((new_rank * 8 + new_file) as u8));
             }
         }
     }
@@ -168,29 +168,29 @@ pub fn rook_moves(from: &Square, occupied: Bitboard) -> Bitboard {
 
     for r in (rank + 1)..8 {
         let sq = Square((r * 8 + file) as u8);
-        targets = targets.set(&sq);
-        if occupied.contains(&sq) {
+        targets = targets.set(sq);
+        if occupied.contains(sq) {
             break;
         }
     }
     for r in (0..rank).rev() {
         let sq = Square((r * 8 + file) as u8);
-        targets = targets.set(&sq);
-        if occupied.contains(&sq) {
+        targets = targets.set(sq);
+        if occupied.contains(sq) {
             break;
         }
     }
     for f in (file + 1)..8 {
         let sq = Square((rank * 8 + f) as u8);
-        targets = targets.set(&sq);
-        if occupied.contains(&sq) {
+        targets = targets.set(sq);
+        if occupied.contains(sq) {
             break;
         }
     }
     for f in (0..file).rev() {
         let sq = Square((rank * 8 + f) as u8);
-        targets = targets.set(&sq);
-        if occupied.contains(&sq) {
+        targets = targets.set(sq);
+        if occupied.contains(sq) {
             break;
         }
     }
@@ -209,8 +209,8 @@ pub fn bishop_moves(from: &Square, occupied: Bitboard) -> Bitboard {
         let mut r = rank + dr;
         while (0..8).contains(&f) && (0..8).contains(&r) {
             let sq = Square((r * 8 + f) as u8);
-            targets = targets.set(&sq);
-            if occupied.contains(&sq) {
+            targets = targets.set(sq);
+            if occupied.contains(sq) {
                 break;
             }
             f += df;

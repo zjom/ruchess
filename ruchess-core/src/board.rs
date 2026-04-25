@@ -1,16 +1,15 @@
-use std::cell::RefCell;
-
 use crate::bitboard::{Attacks, Bitboard};
 use crate::color::{ByColor, Color};
-use crate::piece::{ByRole, Piece, Role};
+use crate::piece::Piece;
+use crate::role::{ByRole, Role};
 use crate::square::Square;
 
 /// Board does not care or know about the rules of the game.
 /// Board only cares about the state of the board and moving pieces.
 #[derive(Clone)]
 pub struct Board {
-    by_role: RefCell<ByRole<Bitboard>>,
-    by_color: RefCell<ByColor<Bitboard>>,
+    by_role: ByRole<Bitboard>,
+    by_color: ByColor<Bitboard>,
     occupied: Bitboard,
     attacks: Attacks,
 }
@@ -27,34 +26,33 @@ impl Board {
 
     /// returns bitboard of all squares occupied by Color
     pub fn bb_color(&self, color: Color) -> Bitboard {
-        *self.by_color.borrow().get(color)
+        *self.by_color.get(color)
     }
 
     /// returns bitboard of all squares occupied by Role
     pub fn bb_role(&self, role: Role) -> Bitboard {
-        *self.by_role.borrow().get(role)
+        *self.by_role.get(role)
     }
 
     /// checks if Square is occupied by anything
-    pub fn is_occupied(&self, square: &Square) -> bool {
+    pub fn is_occupied(&self, square: Square) -> bool {
         self.occupied.contains(square)
     }
 
     /// returns Color at Square if any
-    pub fn color_at(&self, square: &Square) -> Option<Color> {
-        self.by_color.borrow().find(|bb| bb.contains(square))
+    pub fn color_at(&self, square: Square) -> Option<Color> {
+        self.by_color.find(|bb| bb.contains(square))
     }
 
     /// returns Role at Square if any
-    pub fn role_at(&self, square: &Square) -> Option<Role> {
-        self.by_role.borrow().find(|bb| bb.contains(square))
+    pub fn role_at(&self, square: Square) -> Option<Role> {
+        self.by_role.find(|bb| bb.contains(square))
     }
 
     /// returns Piece at Square if any
-    pub fn piece_at(&self, square: &Square) -> Option<Piece> {
+    pub fn piece_at(&self, square: Square) -> Option<Piece> {
         self.color_at(square).map(|color| {
             self.by_role
-                .borrow()
                 .find_or_king(|bb| bb.contains(square))
                 .of(color)
         })
@@ -62,15 +60,11 @@ impl Board {
 
     /// removes piece at Square if any. returns removed piece.
     /// Use [`Board::discard_at`] if you don't need the value.
-    pub fn remove_at(&mut self, square: &Square) -> Option<Piece> {
+    pub fn remove_at(&mut self, square: Square) -> Option<Piece> {
         let piece = self.piece_at(square);
         if let Some(Piece(role, color)) = piece {
-            self.by_role
-                .borrow_mut()
-                .update(role, |bb| bb.clear(square));
-            self.by_color
-                .borrow_mut()
-                .update(color, |bb| bb.clear(square));
+            self.by_role.update(role, |bb| bb.clear(square));
+            self.by_color.update(color, |bb| bb.clear(square));
             self.occupied = self.occupied.clear(square);
         }
         piece
@@ -78,18 +72,16 @@ impl Board {
 
     /// removes piece at Square if any.
     /// Use [`Board::remove_at`] if you need the value.
-    pub fn discard_at(&mut self, square: &Square) {
+    pub fn discard_at(&mut self, square: Square) {
         _ = self.remove_at(square);
     }
 
     /// sets the square to be occupied by piece.
-    pub fn set_at(&mut self, square: &Square, Piece(role, color): Piece) -> &Self {
+    pub fn set_at(&mut self, square: Square, Piece(role, color): Piece) -> &Self {
         self.discard_at(square);
 
-        self.by_role.borrow_mut().update(role, |bb| bb.set(square));
-        self.by_color
-            .borrow_mut()
-            .update(color, |bb| bb.set(square));
+        self.by_role.update(role, |bb| bb.set(square));
+        self.by_color.update(color, |bb| bb.set(square));
         self.occupied = self.occupied.set(square);
         self
     }
@@ -98,7 +90,7 @@ impl Board {
         self.occupied
     }
 
-    pub fn attackers(&self, sq: &Square, attacker: Color) -> Bitboard {
+    pub fn attackers(&self, sq: Square, attacker: Color) -> Bitboard {
         self.bb_color(attacker)
             & (self.rook_attacks(sq) & (self.rooks() ^ self.queens())
                 | self.bishop_attacks(sq) & (self.bishops() ^ self.queens())
@@ -109,7 +101,24 @@ impl Board {
 
     // is a king of this color in check
     pub fn is_check(&self, color: Color) -> bool {
-        self.attackers(&self.king(color), !color) != Bitboard::EMPTY
+        self.attackers(self.king(color), !color) != Bitboard::EMPTY
+    }
+
+    fn slider_blockers(&self, our_king: Square, us: Color) -> Bitboard {
+        let snipers = self.bb_color(!us)
+            & self
+                .attacks
+                .rook_attacks(our_king.0 as usize, Bitboard::EMPTY)
+            & (self.rooks() ^ self.queens())
+            | self
+                .attacks
+                .bishop_attacks(our_king.0 as usize, Bitboard::EMPTY)
+                & (self.bishops() ^ self.queens());
+        snipers
+
+        // snipers.fold(Bitboard::EMPTY, |blockers, sniper| {
+        //     let between = self.occupied.bet
+        // })
     }
 
     fn king(&self, color: Color) -> Square {
@@ -140,30 +149,30 @@ impl Board {
         self.bb_role(Role::King)
     }
 
-    fn rook_attacks(&self, sq: &Square) -> Bitboard {
-        Bitboard(self.attacks.rook_attacks(sq.0 as usize, self.occupied.0))
+    fn rook_attacks(&self, sq: Square) -> Bitboard {
+        self.attacks.rook_attacks(sq.0 as usize, self.occupied)
     }
 
-    fn bishop_attacks(&self, sq: &Square) -> Bitboard {
-        Bitboard(self.attacks.bishop_attacks(sq.0 as usize, self.occupied.0))
+    fn bishop_attacks(&self, sq: Square) -> Bitboard {
+        self.attacks.bishop_attacks(sq.0 as usize, self.occupied)
     }
 
-    fn queen_attacks(&self, sq: &Square) -> Bitboard {
+    fn queen_attacks(&self, sq: Square) -> Bitboard {
         self.bishop_attacks(sq) ^ self.rook_attacks(sq)
     }
 
-    fn pawn_attacks(&self, color: Color, sq: &Square) -> Bitboard {
+    fn pawn_attacks(&self, color: Color, sq: Square) -> Bitboard {
         Bitboard(match color {
             Color::White => self.attacks.white_pawn_attacks[sq.0 as usize],
             Color::Black => self.attacks.black_pawn_attacks[sq.0 as usize],
         })
     }
 
-    fn king_attacks(&self, sq: &Square) -> Bitboard {
+    fn king_attacks(&self, sq: Square) -> Bitboard {
         Bitboard(self.attacks.king_attacks[sq.0 as usize])
     }
 
-    fn knight_attacks(&self, sq: &Square) -> Bitboard {
+    fn knight_attacks(&self, sq: Square) -> Bitboard {
         Bitboard(self.attacks.knight_attacks[sq.0 as usize])
     }
 
@@ -204,18 +213,18 @@ impl std::fmt::Display for Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
-            by_role: RefCell::new(ByRole {
+            by_role: ByRole {
                 pawn: Bitboard(0x00ff_0000_0000_ff00),
                 knight: Bitboard(0x4200_0000_0000_0042),
                 bishop: Bitboard(0x2400_0000_0000_0024),
                 rook: Bitboard(0x8100_0000_0000_0081),
                 queen: Bitboard(0x0800_0000_0000_0008),
                 king: Bitboard(0x1000_0000_0000_0010),
-            }),
-            by_color: RefCell::new(ByColor {
+            },
+            by_color: ByColor {
                 black: Bitboard(0xffff_0000_0000_0000),
                 white: Bitboard(0xffff),
-            }),
+            },
             occupied: Bitboard(0xffff_0000_0000_ffff),
             attacks: Attacks::new(),
         }

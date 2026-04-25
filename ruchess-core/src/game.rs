@@ -26,7 +26,7 @@ impl Game {
     pub fn validate_move(&self, mv: &Move) -> Result<(), MoveError> {
         let piece = self
             .board
-            .piece_at(&mv.from)
+            .piece_at(mv.from)
             .ok_or(MoveError::NoPiece(mv.from))?;
 
         let Piece(_, color) = piece;
@@ -35,7 +35,7 @@ impl Game {
         }
 
         let candidates = pseudo_legal_moves(piece, &mv.from, &self.board, self.en_passant);
-        if !candidates.contains(&mv.to) {
+        if !candidates.contains(mv.to) {
             return Err(MoveError::IllegalMove(mv.to));
         }
 
@@ -53,7 +53,7 @@ impl Game {
     pub fn make_move(&mut self, mv: Move) -> Result<(), MoveError> {
         self.validate_move(&mv)?;
         let prev_en_passant = self.en_passant;
-        if let Some(piece) = self.board.remove_at(&mv.from) {
+        if let Some(piece) = self.board.remove_at(mv.from) {
             self.en_passant = match piece {
                 Piece(Role::Pawn, Color::White) if mv.to.0 == mv.from.0 + 16 => {
                     Some(Square(mv.from.0 + 8)) // the square white passed through
@@ -63,7 +63,7 @@ impl Game {
                 }
                 _ => None,
             };
-            self.board.set_at(&mv.to, piece);
+            self.board.set_at(mv.to, piece);
 
             if matches!(piece, Piece(Role::Pawn, _)) && Some(mv.to) == prev_en_passant {
                 // the captured pawn sits one rank behind the destination (from mover's perspective)
@@ -72,7 +72,7 @@ impl Game {
                     Color::White => Square(mv.to.0 - 8),
                     Color::Black => Square(mv.to.0 + 8),
                 };
-                self.board.discard_at(&captured_pawn_sq);
+                self.board.discard_at(captured_pawn_sq);
             }
         }
         self.turn = self.turn.opponent();

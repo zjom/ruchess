@@ -1,4 +1,4 @@
-use crate::bitboard::magic::Magic;
+use crate::{Bitboard, bitboard::magic::Magic};
 
 #[derive(Clone, Copy)]
 pub struct Attacks {
@@ -77,14 +77,14 @@ impl Attacks {
         a
     }
 
-    pub fn rook_attacks(&self, sq: usize, occupied: u64) -> u64 {
+    pub fn rook_attacks(&self, sq: usize, occupied: Bitboard) -> Bitboard {
         let m = &Magic::ROOK[sq];
-        self.attacks[m.rook_index(occupied)]
+        Bitboard(self.attacks[m.rook_index(occupied)])
     }
 
-    pub fn bishop_attacks(&self, sq: usize, occupied: u64) -> u64 {
+    pub fn bishop_attacks(&self, sq: usize, occupied: Bitboard) -> Bitboard {
         let m = &Magic::BISHOP[sq];
-        self.attacks[m.bishop_index(occupied)]
+        Bitboard(self.attacks[m.bishop_index(occupied)])
     }
 
     fn initialize(&mut self) {
