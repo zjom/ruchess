@@ -1,20 +1,14 @@
-pub mod bitboard;
-pub mod board;
-pub mod color;
-pub mod error;
-pub mod game;
-pub mod m;
-pub mod outcome;
-pub mod piece;
-pub mod role;
-pub mod square;
+pub fn add(left: u64, right: u64) -> u64 {
+    left + right
+}
 
-pub use bitboard::Bitboard;
-pub use board::Board;
-pub use color::{Color, NUM_COLORS};
-pub use error::{MoveError, ParseSquareError};
-pub use game::Game;
-pub use m::Move;
-pub use piece::Piece;
-pub use role::{NUM_ROLES, Role};
-pub use square::Square;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        let result = add(2, 2);
+        assert_eq!(result, 4);
+    }
+}
