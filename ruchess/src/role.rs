@@ -37,15 +37,57 @@ impl Role {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ByRole<T> {
-    pub pawn: T,
-    pub rook: T,
-    pub knight: T,
-    pub bishop: T,
-    pub queen: T,
-    pub king: T,
+    pawn: T,
+    rook: T,
+    knight: T,
+    bishop: T,
+    queen: T,
+    king: T,
 }
 
 impl<T> ByRole<T> {
+    pub fn get(&self, r: Role) -> &T {
+        match r {
+            Role::Pawn => &self.pawn,
+            Role::Knight => &self.knight,
+            Role::Bishop => &self.bishop,
+            Role::Rook => &self.rook,
+            Role::Queen => &self.queen,
+            Role::King => &self.king,
+        }
+    }
+
+    /// Creates a new instance of `ByRole` with updated value.
+    #[must_use]
+    pub fn set(self, r: Role, value: T) -> Self {
+        match r {
+            Role::Pawn => Self {
+                pawn: value,
+                ..self
+            },
+            Role::Knight => Self {
+                knight: value,
+                ..self
+            },
+            Role::Bishop => Self {
+                bishop: value,
+                ..self
+            },
+            Role::Rook => Self {
+                rook: value,
+                ..self
+            },
+            Role::Queen => Self {
+                queen: value,
+                ..self
+            },
+            Role::King => Self {
+                king: value,
+                ..self
+            },
+        }
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples
@@ -82,7 +124,8 @@ impl<T> ByRole<T> {
     /// assert_eq!(doubled.rook, 10);
     /// assert_eq!(doubled.queen, 18);
     /// ```
-    pub fn map<F>(&self, f: F) -> Self
+    #[must_use]
+    pub fn map<F>(self, f: F) -> Self
     where
         F: Fn(&T) -> T,
     {
@@ -116,6 +159,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(values.pawn, 1);
     /// assert_eq!(values.queen, 9);
     /// ```
+    #[must_use]
     pub fn from<F>(f: F) -> Self
     where
         F: Fn(Role) -> T,
