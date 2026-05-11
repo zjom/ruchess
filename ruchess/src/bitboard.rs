@@ -11,6 +11,10 @@ impl Bitboard {
         Self(value)
     }
 
+    pub fn is_empty(self) -> bool {
+        self != Self::EMPTY
+    }
+
     /// Returns a new [`Bitboard`] with the bits specified in `other` flipped.
     ///
     /// # Example
