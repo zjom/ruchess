@@ -20,10 +20,10 @@ impl Board {
                 Bitboard(0x08000000_00000010),
                 Bitboard(0x10000000_00000008),
             ),
-            by_color: ByColor {
-                white: Bitboard(0x00000000_0000FFFF),
-                black: Bitboard(0xFFFF0000_00000000),
-            },
+            by_color: ByColor::new (
+                 Bitboard(0x00000000_0000FFFF),
+                 Bitboard(0xFFFF0000_00000000),
+            ),
             occupied: Bitboard(0xFFFF0000_0000FFFF),
         }
     }

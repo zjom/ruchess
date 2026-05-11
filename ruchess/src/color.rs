@@ -6,11 +6,35 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ByColor<T> {
-    pub white: T,
-    pub black: T,
+    white: T,
+    black: T,
 }
 
 impl<T> ByColor<T> {
+    pub fn new(white: T, black: T) -> Self {
+        Self { white, black }
+    }
+    pub fn get(&self, c: Color) -> &T {
+        match c {
+            Color::White => &self.white,
+            Color::Black => &self.black,
+        }
+    }
+
+    #[must_use]
+    pub fn set(self, c: Color, value: T) -> Self {
+        match c {
+            Color::White => Self {
+                white: value,
+                ..self
+            },
+            Color::Black => Self {
+                black: value,
+                ..self
+            },
+        }
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples
