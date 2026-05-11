@@ -12,6 +12,8 @@ impl Bitboard {
     }
 
     pub fn is_empty(self) -> bool {
+        self == Self::EMPTY
+    }
         self != Self::EMPTY
     }
 
