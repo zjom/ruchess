@@ -1,4 +1,9 @@
 use crate::magic::Magic;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref ATTACKS: Attacks = Attacks::new();
+}
 
 #[derive(Clone, Copy)]
 pub struct Attacks {
@@ -62,7 +67,7 @@ fn init_magics(attacks: &mut [u64; 88772], square: i32, magic: &Magic, shift: u3
 
 #[allow(clippy::new_without_default)]
 impl Attacks {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut a = Attacks {
             ranks: [0u64; 8],
             files: [0u64; 8],
