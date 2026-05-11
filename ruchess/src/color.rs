@@ -44,6 +44,23 @@ impl<T> ByColor<T> {
         }
     }
 
+    #[must_use]
+    pub fn update<F>(self, c: Color, f: F) -> Self
+    where
+        F: Fn(T) -> T,
+    {
+        match c {
+            Color::White => Self {
+                white: f(self.white),
+                ..self
+            },
+            Color::Black => Self {
+                black: f(self.black),
+                ..self
+            },
+        }
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples

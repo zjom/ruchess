@@ -98,6 +98,40 @@ impl<T> ByRole<T> {
         }
     }
 
+    /// Creates a new instance of `ByRole` by applying `f`.
+    #[must_use]
+    pub fn update<F>(self, r: Role, f: F) -> Self
+    where
+        F: Fn(T) -> T,
+    {
+        match r {
+            Role::Pawn => Self {
+                pawn: f(self.pawn),
+                ..self
+            },
+            Role::Knight => Self {
+                knight: f(self.knight),
+                ..self
+            },
+            Role::Bishop => Self {
+                bishop: f(self.bishop),
+                ..self
+            },
+            Role::Rook => Self {
+                rook: f(self.rook),
+                ..self
+            },
+            Role::Queen => Self {
+                queen: f(self.queen),
+                ..self
+            },
+            Role::King => Self {
+                king: f(self.king),
+                ..self
+            },
+        }
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples
