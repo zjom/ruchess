@@ -46,6 +46,16 @@ pub struct ByRole<T> {
 }
 
 impl<T> ByRole<T> {
+    pub fn new(pawn: T, knight: T, bishop: T, rook: T, queen: T, king: T) -> Self {
+        Self {
+            pawn,
+            rook,
+            knight,
+            bishop,
+            queen,
+            king,
+        }
+    }
     pub fn get(&self, r: Role) -> &T {
         match r {
             Role::Pawn => &self.pawn,

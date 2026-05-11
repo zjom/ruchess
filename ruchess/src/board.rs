@@ -12,14 +12,14 @@ pub struct Board {
 impl Board {
     pub fn new() -> Self {
         Self {
-            by_role: ByRole {
-                pawn: Bitboard(0x00FF0000_0000FF00),
-                rook: Bitboard(0x81000000_00000081),
-                knight: Bitboard(0x42000000_00000042),
-                bishop: Bitboard(0x24000000_00000024),
-                king: Bitboard(0x08000000_00000010),
-                queen: Bitboard(0x10000000_00000008),
-            },
+            by_role: ByRole::new(
+                Bitboard(0x00FF0000_0000FF00),
+                Bitboard(0x81000000_00000081),
+                Bitboard(0x42000000_00000042),
+                Bitboard(0x24000000_00000024),
+                Bitboard(0x08000000_00000010),
+                Bitboard(0x10000000_00000008),
+            ),
             by_color: ByColor {
                 white: Bitboard(0x00000000_0000FFFF),
                 black: Bitboard(0xFFFF0000_00000000),
