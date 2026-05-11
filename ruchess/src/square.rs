@@ -1,3 +1,7 @@
+use std::error::Error;
+use std::fmt::Display;
+use std::str::FromStr;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum File {
@@ -112,6 +116,31 @@ impl std::fmt::Display for Square {
         let rank = (b'A' + self.0 % 8) as char;
         let file = (b'1' + (self.0 / 8) % 8) as char;
         write!(f, "{}{}", rank, file)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParseSquareError(pub String);
+impl Display for ParseSquareError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "invalid square notation: `{}`", self.0)
+    }
+}
+impl Error for ParseSquareError {}
+
+impl FromStr for Square {
+    type Err = ParseSquareError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let norm = s.trim().to_ascii_uppercase();
+        let p = norm.as_bytes();
+        match p {
+            [b'A'..=b'H', b'1'..=b'8'] => {
+                let rank = p[0] - b'A';
+                let file = p[1] - b'1';
+                Ok(Square(file * 8 + rank))
+            }
+            _ => Err(ParseSquareError(s.into())),
+        }
     }
 }
 
