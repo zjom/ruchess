@@ -6,7 +6,7 @@ use crate::{bitboard::Bitboard, color::ByColor, piece::Piece, role::ByRole, squa
 pub struct Board {
     by_role: ByRole<Bitboard>,
     by_color: ByColor<Bitboard>,
-    combined: Bitboard,
+    occupied: Bitboard,
 }
 
 impl Board {
@@ -24,7 +24,7 @@ impl Board {
                 white: Bitboard(0x00000000_0000FFFF),
                 black: Bitboard(0xFFFF0000_00000000),
             },
-            combined: Bitboard(0xFFFF0000_0000FFFF),
+            occupied: Bitboard(0xFFFF0000_0000FFFF),
         }
     }
 
@@ -33,7 +33,7 @@ impl Board {
 
         for i in 0..64 {
             let sq = Square(i as u8);
-            if self.combined.is_set(sq) {
+            if self.occupied.is_set(sq) {
                 let (color, _color_bb) = self.by_color.find(|b| b.is_set(sq)).unwrap();
                 let (role, _role_bb) = self.by_role.find(|b| b.is_set(sq)).unwrap();
                 grid[i / 8][i % 8] = Some(Piece { color, role })
