@@ -37,12 +37,12 @@ impl Role {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ByRole<T> {
-    pawn: T,
-    rook: T,
-    knight: T,
-    bishop: T,
-    queen: T,
-    king: T,
+    pub(crate) pawn: T,
+    pub(crate) rook: T,
+    pub(crate) knight: T,
+    pub(crate) bishop: T,
+    pub(crate) queen: T,
+    pub(crate) king: T,
 }
 
 impl<T> ByRole<T> {

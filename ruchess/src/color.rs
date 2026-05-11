@@ -15,8 +15,8 @@ impl Color {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ByColor<T> {
-    white: T,
-    black: T,
+    pub(crate) white: T,
+    pub(crate) black: T,
 }
 
 impl<T> ByColor<T> {
