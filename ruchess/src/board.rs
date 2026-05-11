@@ -35,9 +35,58 @@ impl Board {
         }
     }
 
+    /// returns a new [`Board`] with the [`Square`] `sq` set to `p`
+    ///
+    /// overwrites any existing piece
+    #[must_use]
+    pub fn set(self, sq: Square, p: Piece) -> Self {
+        let (board, piece) = self.pop(sq);
+        match piece {
+            Some(_) => Self {
+                by_role: board.by_role.update(p.role, |bb| bb.set(sq)),
+                by_color: board.by_color.update(p.color, |bb| bb.set(sq)),
+                occupied: board.occupied,
+            },
+            None => Self {
+                by_role: board.by_role.update(p.role, |bb| bb.set(sq)),
+                by_color: board.by_color.update(p.color, |bb| bb.set(sq)),
+                occupied: board.occupied.set(sq),
+            },
+        }
+    }
+
+    /// returns a new [`Board`] with piece at `sq` removed, returning it if any
+    #[must_use]
+    pub fn pop(self, sq: Square) -> (Self, Option<Piece>) {
+        if !self.is_occupied(sq) {
+            (self, None)
+        } else {
+            let piece = self.piece_at(sq).unwrap();
+            let board = Self {
+                by_role: self.by_role.update(piece.role, |bb| bb.unset(sq)),
+                by_color: self.by_color.update(piece.color, |bb| bb.unset(sq)),
+                occupied: self.occupied.unset(sq),
+            };
+
+            (board, Some(piece))
+        }
+    }
+
     /// whether a square is occupied
-    pub fn is_occupied(&self, s: Square) -> bool {
-        self.occupied.is_set(s)
+    pub fn is_occupied(&self, sq: Square) -> bool {
+        self.occupied.is_set(sq)
+    }
+
+    pub fn piece_at(&self, sq: Square) -> Option<Piece> {
+        self.color_at(sq)
+            .and_then(|c| self.role_at(sq).map(|r| Piece { role: r, color: c }))
+    }
+
+    pub fn role_at(&self, sq: Square) -> Option<Role> {
+        self.by_role.find(|bb| bb.is_set(sq)).map(|(p, _)| p)
+    }
+    pub fn color_at(&self, sq: Square) -> Option<Color> {
+        self.by_color.find(|bb| bb.is_set(sq)).map(|(c, _)| c)
     }
 
     /// whether a piece exists
