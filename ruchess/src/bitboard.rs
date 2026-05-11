@@ -106,6 +106,18 @@ impl From<Square> for Bitboard {
     }
 }
 
+impl TryFrom<Bitboard> for Square {
+    type Error = ();
+
+    fn try_from(value: Bitboard) -> Result<Self, Self::Error> {
+        if value.0.count_ones() == 1 {
+            Ok(Square(value.0.trailing_zeros() as u8))
+        } else {
+            Err(())
+        }
+    }
+}
+
 impl std::ops::Not for Bitboard {
     type Output = Self;
     fn not(self) -> Self::Output {
