@@ -2,7 +2,7 @@ use crate::magic::Magic;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref ATTACKS: Attacks = Attacks::new();
+    pub static ref ATTACKS: Attacks = Attacks::new();
 }
 
 #[derive(Clone, Copy)]
