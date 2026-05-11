@@ -1,6 +1,7 @@
 pub mod bitboard;
 
-mod attacks {}
+pub mod attacks;
+pub mod magic;
 
 pub mod board;
 
