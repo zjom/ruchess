@@ -107,11 +107,13 @@ impl Board {
     /// returns a `Bitboard` of all `attacker`-colored pieces that have `sq` in their attack range.
     pub fn attackers(&self, sq: Square, attacker: Color) -> Bitboard {
         self.bycolor(attacker)
-            & (self.rook_attacks(sq) & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))
-                | self.bishop_attacks(sq) & (self.byrole(Role::Bishop) ^ self.byrole(Role::Queen))
-                | self.knight_attacks(sq) & self.byrole(Role::Knight)
-                | self.king_attacks(sq) & self.byrole(Role::King)
-                | self.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
+            & (ATTACKS.rook_attacks(sq, self.occupied)
+                & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))
+                | ATTACKS.bishop_attacks(sq, self.occupied)
+                    & (self.byrole(Role::Bishop) ^ self.byrole(Role::Queen))
+                | ATTACKS.knight_attacks(sq) & self.byrole(Role::Knight)
+                | ATTACKS.king_attacks(sq) & self.byrole(Role::King)
+                | ATTACKS.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
     }
 
     fn king_sq(&self, c: Color) -> Square {
@@ -121,28 +123,6 @@ impl Board {
         })
         .try_into()
         .expect("only 1 king per color")
-    }
-
-    fn rook_attacks(&self, sq: Square) -> Bitboard {
-        Bitboard(ATTACKS.rook_attacks(sq.0 as usize, self.occupied.0))
-    }
-
-    fn bishop_attacks(&self, sq: Square) -> Bitboard {
-        Bitboard(ATTACKS.bishop_attacks(sq.0 as usize, self.occupied.0))
-    }
-
-    fn pawn_attacks(&self, color: Color, sq: Square) -> Bitboard {
-        Bitboard(match color {
-            Color::White => ATTACKS.white_pawn_attacks[sq.0 as usize],
-            Color::Black => ATTACKS.black_pawn_attacks[sq.0 as usize],
-        })
-    }
-    fn king_attacks(&self, sq: Square) -> Bitboard {
-        Bitboard(ATTACKS.king_attacks[sq.0 as usize])
-    }
-
-    fn knight_attacks(&self, sq: Square) -> Bitboard {
-        Bitboard(ATTACKS.knight_attacks[sq.0 as usize])
     }
 
     fn bypiece(&self, p: Piece) -> Bitboard {

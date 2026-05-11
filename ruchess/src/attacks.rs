@@ -1,4 +1,4 @@
-use crate::magic::Magic;
+use crate::{bitboard::Bitboard, color::Color, magic::Magic, square::Square};
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -19,52 +19,6 @@ pub struct Attacks {
     pub black_pawn_attacks: [u64; 64],
 }
 
-const KNIGHT_DELTAS: [i32; 8] = [17, 15, 10, 6, -17, -15, -10, -6];
-const BISHOP_DELTAS: [i32; 4] = [7, -7, 9, -9];
-const ROOK_DELTAS: [i32; 4] = [1, -1, 8, -8];
-const KING_DELTAS: [i32; 8] = [1, 7, 8, 9, -1, -7, -8, -9];
-const WHITE_PAWN_DELTAS: [i32; 2] = [7, 9];
-const BLACK_PAWN_DELTAS: [i32; 2] = [-7, -9];
-
-fn distance(a: i32, b: i32) -> i32 {
-    let file = |s: i32| s & 7;
-    let rank = |s: i32| s >> 3;
-    (file(a) - file(b)).abs().max((rank(a) - rank(b)).abs())
-}
-
-fn sliding_attacks(square: i32, occupied: u64, deltas: &[i32]) -> u64 {
-    let mut attacks = 0u64;
-    for &delta in deltas {
-        let mut sq = square;
-        loop {
-            sq += delta;
-            let oob = !(0..64).contains(&sq) || distance(sq, sq - delta) > 2;
-            if oob {
-                break;
-            }
-            attacks |= 1u64 << sq;
-            if occupied & (1u64 << sq) != 0 {
-                break;
-            }
-        }
-    }
-    attacks
-}
-
-fn init_magics(attacks: &mut [u64; 88772], square: i32, magic: &Magic, shift: u32, deltas: &[i32]) {
-    let mut subset = 0u64;
-    loop {
-        let attack = sliding_attacks(square, subset, deltas);
-        let idx = ((magic.factor.wrapping_mul(subset)) >> (64 - shift)) as usize + magic.offset;
-        attacks[idx] = attack;
-
-        subset = subset.wrapping_sub(magic.mask) & magic.mask;
-        if subset == 0 {
-            break;
-        }
-    }
-}
-
 #[allow(clippy::new_without_default)]
 impl Attacks {
     fn new() -> Self {
@@ -83,14 +37,29 @@ impl Attacks {
         a
     }
 
-    pub fn rook_attacks(&self, sq: usize, occupied: u64) -> u64 {
-        let m = &Magic::ROOK[sq];
-        self.attacks[m.rook_index(occupied)]
+    pub fn rook_attacks(&self, sq: Square, occupied: Bitboard) -> Bitboard {
+        let m = &Magic::ROOK[sq.0 as usize];
+        Bitboard(self.attacks[m.rook_index(occupied.0)])
     }
 
-    pub fn bishop_attacks(&self, sq: usize, occupied: u64) -> u64 {
-        let m = &Magic::BISHOP[sq];
-        self.attacks[m.bishop_index(occupied)]
+    pub fn bishop_attacks(&self, sq: Square, occupied: Bitboard) -> Bitboard {
+        let m = &Magic::BISHOP[sq.0 as usize];
+        Bitboard(self.attacks[m.bishop_index(occupied.0)])
+    }
+
+    pub fn pawn_attacks(&self, color: Color, sq: Square) -> Bitboard {
+        Bitboard(match color {
+            Color::White => self.white_pawn_attacks[sq.0 as usize],
+            Color::Black => self.black_pawn_attacks[sq.0 as usize],
+        })
+    }
+
+    pub fn king_attacks(&self, sq: Square) -> Bitboard {
+        Bitboard(self.king_attacks[sq.0 as usize])
+    }
+
+    pub fn knight_attacks(&self, sq: Square) -> Bitboard {
+        Bitboard(self.knight_attacks[sq.0 as usize])
     }
 
     fn initialize(&mut self) {
@@ -142,6 +111,52 @@ impl Attacks {
                             & sliding_attacks(b, 0, &BISHOP_DELTAS);
                 }
             }
+        }
+    }
+}
+
+const KNIGHT_DELTAS: [i32; 8] = [17, 15, 10, 6, -17, -15, -10, -6];
+const BISHOP_DELTAS: [i32; 4] = [7, -7, 9, -9];
+const ROOK_DELTAS: [i32; 4] = [1, -1, 8, -8];
+const KING_DELTAS: [i32; 8] = [1, 7, 8, 9, -1, -7, -8, -9];
+const WHITE_PAWN_DELTAS: [i32; 2] = [7, 9];
+const BLACK_PAWN_DELTAS: [i32; 2] = [-7, -9];
+
+fn distance(a: i32, b: i32) -> i32 {
+    let file = |s: i32| s & 7;
+    let rank = |s: i32| s >> 3;
+    (file(a) - file(b)).abs().max((rank(a) - rank(b)).abs())
+}
+
+fn sliding_attacks(square: i32, occupied: u64, deltas: &[i32]) -> u64 {
+    let mut attacks = 0u64;
+    for &delta in deltas {
+        let mut sq = square;
+        loop {
+            sq += delta;
+            let oob = !(0..64).contains(&sq) || distance(sq, sq - delta) > 2;
+            if oob {
+                break;
+            }
+            attacks |= 1u64 << sq;
+            if occupied & (1u64 << sq) != 0 {
+                break;
+            }
+        }
+    }
+    attacks
+}
+
+fn init_magics(attacks: &mut [u64; 88772], square: i32, magic: &Magic, shift: u32, deltas: &[i32]) {
+    let mut subset = 0u64;
+    loop {
+        let attack = sliding_attacks(square, subset, deltas);
+        let idx = ((magic.factor.wrapping_mul(subset)) >> (64 - shift)) as usize + magic.offset;
+        attacks[idx] = attack;
+
+        subset = subset.wrapping_sub(magic.mask) & magic.mask;
+        if subset == 0 {
+            break;
         }
     }
 }
