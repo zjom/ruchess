@@ -11,9 +11,10 @@ impl Bitboard {
         Self(value)
     }
 
-    /// Flips the bits
+    /// Returns a new [`Bitboard`] with the bits specified in `other` flipped.
     ///
     /// # Example
+    ///
     /// ```
     /// # use ruchess::bitboard::Bitboard;
     /// let a = Bitboard(0b1100);
@@ -26,18 +27,53 @@ impl Bitboard {
         self ^ other
     }
 
-    /// Sets the bit(s)
+    /// Returns a new [`Bitboard`] with the bits specified in `other` set.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let a = Bitboard(0b1100);
+    /// let b = Bitboard(0b0011);
+    /// assert_eq!(a.set(b), Bitboard(0b1111));
+    ///
+    /// // setting already-set bits is a no-op
+    /// assert_eq!(a.set(a), a);
+    /// ```
     pub fn set(self, other: impl Into<Bitboard>) -> Self {
         self | other
     }
 
-    /// Unsets the bit(s)
+    /// Returns a new [`Bitboard`] with the bits specified in `other` unset.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let a = Bitboard(0b1111);
+    /// let b = Bitboard(0b0011);
+    /// assert_eq!(a.unset(b), Bitboard(0b1100));
+    ///
+    /// // unsetting already-unset bits is a no-op
+    /// assert_eq!(a.unset(Bitboard::EMPTY), a);
+    /// ```
     pub fn unset(self, other: impl Into<Bitboard>) -> Bitboard {
         let mask = other.into();
         self & !mask
     }
 
-    /// Check if any bits are set
+    /// Returns `true` if any of the bits specified in `other` are set.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let a = Bitboard(0b1100);
+    /// assert!(a.is_set(Bitboard(0b1000)));  // overlapping bit
+    /// assert!(a.is_set(Bitboard(0b1111)));  // partial overlap also returns true
+    /// assert!(!a.is_set(Bitboard(0b0011))); // no overlap
+    /// assert!(!a.is_set(Bitboard::EMPTY));  // empty mask is never set
+    /// ```
     pub fn is_set(self, other: impl Into<Bitboard>) -> bool {
         (self & other) != Self::EMPTY
     }
