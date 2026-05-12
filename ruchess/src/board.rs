@@ -139,7 +139,7 @@ impl Board {
 
     /// whether color `c`'s king in check
     pub fn is_check(&self, c: Color) -> bool {
-        self.attackers(self.king_sq(c), c.opponent()).is_non_empty()
+        self.attackers(self.king(c), c.opponent()).is_non_empty()
     }
 
     /// whether the square `sq` belonging to color `c` being attacked by `c`'s opponent
@@ -159,7 +159,7 @@ impl Board {
                 | ATTACKS.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
     }
 
-    fn king_sq(&self, c: Color) -> Square {
+    pub fn king(&self, c: Color) -> Square {
         self.bypiece(Piece {
             role: Role::King,
             color: c,
