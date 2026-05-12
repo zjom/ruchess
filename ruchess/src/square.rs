@@ -2,6 +2,8 @@ use std::error::Error;
 use std::fmt::Display;
 use std::str::FromStr;
 
+use crate::color::Color;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum File {
@@ -112,6 +114,35 @@ impl Square {
 
     pub fn file(&self) -> File {
         File::new((self.0 % 8) as u32)
+    }
+
+    pub fn ydist(self, other: Square) -> u8 {
+        self.rank().as_u8() - other.rank().as_u8()
+    }
+
+    pub fn prev_rank(self, color: Color) -> Option<Square> {
+        match color {
+            Color::White => {
+                if self.rank() == Rank::First {
+                    None
+                } else {
+                    Some(Square::from_file_and_rank(
+                        self.file(),
+                        Rank::new((self.rank().as_u8() - 1) as u32),
+                    ))
+                }
+            }
+            Color::Black => {
+                if self.rank() == Rank::Eighth {
+                    None
+                } else {
+                    Some(Square::from_file_and_rank(
+                        self.file(),
+                        Rank::new((self.rank().as_u8() + 1) as u32),
+                    ))
+                }
+            }
+        }
     }
 }
 
