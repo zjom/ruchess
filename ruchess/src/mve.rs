@@ -6,7 +6,7 @@ use crate::{
     color::Color,
     piece::Piece,
     role::{PromotableRole, Role},
-    square::Square,
+    square::{ParseSquareError, Square},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -19,6 +19,7 @@ pub struct Move {
     pub castle: Option<Castle>,
     pub enpassant: Option<()>,
     pub after: Board,
+    pub previous: Board,
 }
 
 impl Move {
@@ -64,7 +65,7 @@ impl Move {
     ) -> Option<Move> {
         let taken = is_capture.then_some(dest);
         let after = if is_capture {
-            board.capture(orig, dest)
+            board.capture(orig, dest, None)
         } else {
             board.mve(orig, dest)
         };
@@ -78,6 +79,27 @@ impl Move {
             castle: None,
             enpassant: None,
             after,
+            previous: board,
+        })
+    }
+
+    /// Builds an enpassant [`Move`] from `orig` to `dest`.
+    pub fn enpassant(board: Board, orig: Square, dest: Square, color: Color) -> Option<Move> {
+        let capture = Some(Square::from_file_and_rank(dest.file(), orig.rank()));
+
+        board.capture(orig, dest, capture).map(|after| Move {
+            piece: Piece {
+                role: Role::Pawn,
+                color,
+            },
+            orig,
+            dest,
+            capture,
+            promotion: None,
+            castle: None,
+            enpassant: Some(()),
+            after,
+            previous: board,
         })
     }
 }
@@ -93,6 +115,8 @@ pub enum Castle {
 /// Includes captures (diagonal onto opponent pieces), single pushes (one square
 /// forward onto an empty square), and double pushes (two squares forward from
 /// the starting rank when both intermediate and target squares are empty).
+///
+/// Does not include enpassant.
 ///
 /// # Examples
 ///
@@ -174,6 +198,7 @@ fn gen_pawn_moves(
                         castle: None,
                         enpassant: None,
                         after,
+                        previous: board,
                     })
                 } else {
                     board.mve(from, to).map(|after| Move {
@@ -188,6 +213,7 @@ fn gen_pawn_moves(
                         castle: None,
                         enpassant: None,
                         after,
+                        previous: board,
                     })
                 }
             })
@@ -198,22 +224,30 @@ fn gen_pawn_moves(
             .unwrap_or(vec![])
     }
 }
+pub fn gen_enpassant(last_move: Move, board: Board, color: Color) -> Vec<Move> {
+    let Some(target) = potential_enpassant_sq(last_move, board, color) else {
+        return vec![];
+    };
+    let our_pawns = board.bypiece(Piece {
+        role: Role::Pawn,
+        color,
+    });
+    (ATTACKS.pawn_attacks(color.opponent(), target) & our_pawns)
+        .into_iter()
+        .filter_map(|from| Move::enpassant(board, from, target, color))
+        .collect()
+}
 
-pub fn enpassant(board: Board, orig: Square, dest: Square, color: Color) -> Option<Move> {
-    let capture = Some(Square::from_file_and_rank(dest.file(), orig.rank()));
-
-    board.capture(orig, dest, capture).map(|after| Move {
-        piece: Piece {
-            role: Role::Pawn,
-            color,
-        },
-        orig,
-        dest,
-        capture,
-        promotion: None,
-        castle: None,
-        enpassant: Some(()),
-        after,
+fn potential_enpassant_sq(last_move: Move, board: Board, color: Color) -> Option<Square> {
+    board.piece_at(last_move.dest).and_then(|piece| {
+        if piece.color != color
+            && piece.role == Role::Pawn
+            && last_move.orig.ydist(last_move.dest) == 2
+        {
+            last_move.dest.prev_rank(color)
+        } else {
+            None
+        }
     })
 }
 
