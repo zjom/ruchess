@@ -1,3 +1,5 @@
+use crate::square::Rank;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Color {
     White,
@@ -9,6 +11,19 @@ impl Color {
         match self {
             Self::White => Self::Black,
             Self::Black => Self::White,
+        }
+    }
+
+    pub fn fourth_rank(self) -> Rank {
+        match self {
+            Self::White => Rank::Fourth,
+            Self::Black => Rank::Fifth,
+        }
+    }
+    pub fn seventh_rank(self) -> Rank {
+        match self {
+            Self::White => Rank::Seventh,
+            Self::Black => Rank::Second,
         }
     }
 }
