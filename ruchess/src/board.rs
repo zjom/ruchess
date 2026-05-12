@@ -9,7 +9,7 @@ use crate::{
     square::Square,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Board {
     by_role: ByRole<Bitboard>,
     by_color: ByColor<Bitboard>,
@@ -33,6 +33,23 @@ impl Board {
             },
             occupied: Bitboard(0xFFFF0000_0000FFFF),
         }
+    }
+
+    pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
+        if self.is_occupied(dest) {
+            return None;
+        }
+        let (board, Some(piece)) = self.pop(orig) else {
+            return None;
+        };
+        Some(board.set(dest, piece))
+    }
+
+    pub fn capture(self, orig: Square, dest: Square) -> Option<Self> {
+        let (board, Some(piece)) = self.pop(orig) else {
+            return None;
+        };
+        Some(board.set(dest, piece))
     }
 
     /// returns a new [`Board`] with the [`Square`] `sq` set to `p`
@@ -75,6 +92,10 @@ impl Board {
     /// whether a square is occupied
     pub fn is_occupied(&self, sq: Square) -> bool {
         self.occupied.is_set(sq)
+    }
+
+    pub fn occupied(&self) -> Bitboard {
+        self.occupied
     }
 
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
@@ -125,14 +146,14 @@ impl Board {
         .expect("only 1 king per color")
     }
 
-    fn bypiece(&self, p: Piece) -> Bitboard {
+    pub fn bypiece(&self, p: Piece) -> Bitboard {
         self.byrole(p.role) & self.bycolor(p.color)
     }
-    fn bycolor(&self, c: Color) -> Bitboard {
+    pub fn bycolor(&self, c: Color) -> Bitboard {
         *self.by_color.get(c)
     }
 
-    fn byrole(&self, r: Role) -> Bitboard {
+    pub fn byrole(&self, r: Role) -> Bitboard {
         *self.by_role.get(r)
     }
 
