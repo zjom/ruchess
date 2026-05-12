@@ -5,7 +5,7 @@ pub struct Magic {
 }
 
 impl Magic {
-    const fn new(factor: u64, offset: usize, mask: u64) -> Self {
+    const fn new(mask: u64, factor: u64, offset: usize) -> Self {
         Self {
             factor,
             offset,
