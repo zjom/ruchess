@@ -102,12 +102,12 @@ impl Square {
         assert!(idx < 64);
         Square(idx as u8)
     }
-    pub fn rank(&self) -> u8 {
-        self.0 % 8
+    pub fn rank(&self) -> Rank {
+        Rank::new((self.0 % 8) as u32)
     }
 
-    pub fn file(&self) -> u8 {
-        (self.0 / 8) % 8
+    pub fn file(&self) -> File {
+        File::new((self.0 % 8) as u32)
     }
 }
 
