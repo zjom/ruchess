@@ -2,7 +2,7 @@ use crate::{bitboard::Bitboard, color::Color, magic::Magic, square::Square};
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref ATTACKS: Attacks = Attacks::new();
+    pub static ref ATTACKS: Box<Attacks> = Attacks::new();
 }
 
 #[derive(Clone, Copy)]
@@ -21,18 +21,11 @@ pub struct Attacks {
 
 #[allow(clippy::new_without_default)]
 impl Attacks {
-    fn new() -> Self {
-        let mut a = Attacks {
-            ranks: [0u64; 8],
-            files: [0u64; 8],
-            between: [[0u64; 64]; 64],
-            rays: [[0u64; 64]; 64],
-            attacks: [0u64; 88772],
-            knight_attacks: [0u64; 64],
-            king_attacks: [0u64; 64],
-            white_pawn_attacks: [0u64; 64],
-            black_pawn_attacks: [0u64; 64],
-        };
+    fn new() -> Box<Self> {
+        // All fields are `[u64; N]`, so the all-zero bit pattern is a valid
+        // `Attacks`. Allocate directly on the heap to avoid the ~780 KB stack
+        // temporary that would otherwise blow the default 2 MB test-thread stack.
+        let mut a: Box<Self> = unsafe { Box::<Self>::new_zeroed().assume_init() };
         a.initialize();
         a
     }
