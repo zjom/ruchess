@@ -87,6 +87,24 @@ impl Bitboard {
     }
 }
 
+impl Iterator for Bitboard {
+    type Item = Square;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 == 0 {
+            return None;
+        }
+
+        // Find the index of the least significant 1-bit (the first occupied square)
+        let square_index = self.0.trailing_zeros() as u8;
+
+        // Clear the least significant 1-bit using a standard bit-manipulation trick
+        self.0 &= self.0 - 1;
+
+        Some(Square(square_index))
+    }
+}
+
 impl From<u64> for Bitboard {
     fn from(value: u64) -> Self {
         Self::new(value)
@@ -145,6 +163,20 @@ impl<T: Into<Bitboard>> std::ops::BitXor<T> for Bitboard {
     type Output = Bitboard;
     fn bitxor(self, rhs: T) -> Self::Output {
         Bitboard(self.0 ^ rhs.into().0)
+    }
+}
+
+impl<T: Into<Bitboard>> std::ops::Shl<T> for Bitboard {
+    type Output = Self;
+    fn shl(self, rhs: T) -> Self::Output {
+        Bitboard(self.0 << rhs.into().0)
+    }
+}
+
+impl<T: Into<Bitboard>> std::ops::Shr<T> for Bitboard {
+    type Output = Self;
+    fn shr(self, rhs: T) -> Self::Output {
+        Bitboard(self.0 >> rhs.into().0)
     }
 }
 
