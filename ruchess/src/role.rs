@@ -8,6 +8,17 @@ pub enum Role {
     King,
 }
 
+pub enum PromotableRole {
+    Rook,
+    Knight,
+    Bishop,
+    Queen,
+}
+
+impl PromotableRole {
+    pub const ROLES: [PromotableRole; 4] = [Self::Rook, Self::Knight, Self::Bishop, Self::Queen];
+}
+
 impl Role {
     /// Returns ascii representation of role.
     ///
