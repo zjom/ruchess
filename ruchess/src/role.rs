@@ -8,6 +8,7 @@ pub enum Role {
     King,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PromotableRole {
     Rook,
     Knight,
@@ -48,12 +49,12 @@ impl Role {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ByRole<T> {
-    pub(crate) pawn: T,
-    pub(crate) rook: T,
-    pub(crate) knight: T,
-    pub(crate) bishop: T,
-    pub(crate) queen: T,
-    pub(crate) king: T,
+    pub pawn: T,
+    pub rook: T,
+    pub knight: T,
+    pub bishop: T,
+    pub queen: T,
+    pub king: T,
 }
 
 impl<T> ByRole<T> {
