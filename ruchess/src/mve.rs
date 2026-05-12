@@ -9,6 +9,7 @@ use crate::{
     square::Square,
 };
 
+#[derive(Debug, Clone, Copy)]
 pub struct Move {
     pub piece: Piece,
     pub orig: Square,
@@ -81,6 +82,7 @@ impl Move {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Castle {
     KingSide,
     QueenSide,
