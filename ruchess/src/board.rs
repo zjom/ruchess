@@ -35,6 +35,22 @@ impl Board {
         }
     }
 
+    pub const EMPTY: Board = Board {
+        by_role: ByRole {
+            pawn: Bitboard::EMPTY,
+            rook: Bitboard::EMPTY,
+            knight: Bitboard::EMPTY,
+            bishop: Bitboard::EMPTY,
+            queen: Bitboard::EMPTY,
+            king: Bitboard::EMPTY,
+        },
+        by_color: ByColor {
+            white: Bitboard::EMPTY,
+            black: Bitboard::EMPTY,
+        },
+        occupied: Bitboard::EMPTY,
+    };
+
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         if self.is_occupied(dest) {
             return None;
