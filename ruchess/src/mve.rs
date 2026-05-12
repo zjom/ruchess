@@ -162,7 +162,7 @@ fn gen_pawn_moves(
             .into_iter()
             .filter_map(|r| {
                 if is_capture {
-                    board.capture(from, to).map(|after| Move {
+                    board.capture(from, to, None).map(|after| Move {
                         piece: Piece {
                             role: Role::Pawn,
                             color,
@@ -197,6 +197,24 @@ fn gen_pawn_moves(
             .map(|m| vec![m])
             .unwrap_or(vec![])
     }
+}
+
+pub fn enpassant(board: Board, orig: Square, dest: Square, color: Color) -> Option<Move> {
+    let capture = Some(Square::from_file_and_rank(dest.file(), orig.rank()));
+
+    board.capture(orig, dest, capture).map(|after| Move {
+        piece: Piece {
+            role: Role::Pawn,
+            color,
+        },
+        orig,
+        dest,
+        capture,
+        promotion: None,
+        castle: None,
+        enpassant: Some(()),
+        after,
+    })
 }
 
 #[cfg(test)]

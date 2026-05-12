@@ -102,6 +102,10 @@ impl Square {
         assert!(idx < 64);
         Square(idx as u8)
     }
+    pub const fn from_file_and_rank(file: File, rank: Rank) -> Self {
+        Self::new((rank.as_u8() * 8 + file.as_u8()) as u32)
+    }
+
     pub fn rank(&self) -> Rank {
         Rank::new((self.0 / 8) as u32)
     }

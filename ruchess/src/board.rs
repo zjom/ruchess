@@ -61,11 +61,17 @@ impl Board {
         Some(board.set(dest, piece))
     }
 
-    pub fn capture(self, orig: Square, dest: Square) -> Option<Self> {
+    pub fn capture(self, orig: Square, dest: Square, capture: Option<Square>) -> Option<Self> {
         let (board, Some(piece)) = self.pop(orig) else {
             return None;
         };
-        Some(board.set(dest, piece))
+
+        let board = board.set(dest, piece);
+        if let Some(sq) = capture {
+            Some(board.pop(sq).0)
+        } else {
+            Some(board)
+        }
     }
 
     /// returns a new [`Board`] with the [`Square`] `sq` set to `p`
