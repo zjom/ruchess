@@ -103,7 +103,7 @@ impl Square {
         Square(idx as u8)
     }
     pub fn rank(&self) -> Rank {
-        Rank::new((self.0 % 8) as u32)
+        Rank::new((self.0 / 8) as u32)
     }
 
     pub fn file(&self) -> File {
@@ -113,9 +113,9 @@ impl Square {
 
 impl std::fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let rank = (b'A' + self.0 % 8) as char;
-        let file = (b'1' + (self.0 / 8) % 8) as char;
-        write!(f, "{}{}", rank, file)
+        let file = (b'A' + self.0 % 8) as char;
+        let rank = (b'1' + (self.0 / 8) % 8) as char;
+        write!(f, "{}{}", file, rank)
     }
 }
 
