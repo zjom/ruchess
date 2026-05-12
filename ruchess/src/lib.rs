@@ -30,6 +30,6 @@ pub mod piece {
     }
 }
 
-mod mve {}
+pub mod mve;
 
 mod game {}
