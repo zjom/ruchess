@@ -14,6 +14,13 @@ impl Color {
         }
     }
 
+    pub fn second_rank(self) -> Rank {
+        match self {
+            Self::White => Rank::Second,
+            Self::Black => Rank::Seventh,
+        }
+    }
+
     pub fn fourth_rank(self) -> Rank {
         match self {
             Self::White => Rank::Fourth,
