@@ -1,11 +1,4 @@
-use crate::{
-    board::Board,
-    color::Color,
-    piece::Piece,
-    role::{PromotableRole, Role},
-    side::Side,
-    square::Square,
-};
+use crate::{board::Board, piece::Piece, role::PromotableRole, side::Side, square::Square};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Move {
