@@ -4,6 +4,7 @@ use crate::{
     board::Board,
     castles::Castles,
     color::Color,
+    hash::{Hash, PositionHash},
     history::History,
     mve::Move,
     piece::Piece,
@@ -52,20 +53,32 @@ impl Position {
     }
     pub fn update_history<F>(self, f: F) -> Self
     where
-        F: FnOnce(History) -> History,
+        F: FnOnce(&History) -> History,
     {
         Self {
-            history: f(self.history),
+            history: f(&self.history),
             ..self
         }
     }
 
-    pub fn mve(&self, orig: Square, dest: Square) -> Option<Self> {
+    pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         let mve = self
             .valid_moves()
             .find(|m| m.orig == orig && m.dest == dest)?;
-
-        todo!()
+        let entry = PositionHash::from_hash(Hash::from_position(&self));
+        let positions = entry.combine(&self.history.position_hashes);
+        let history = History {
+            position_hashes: positions,
+            last_move: Some(mve.into()),
+            castles: self.history.castles.with_move(&mve),
+            unmoved_rooks: self.history.unmoved_rooks.update(&mve),
+            half_move_clock: self.history.half_move_clock.incr(),
+        };
+        Some(Self {
+            board: mve.after,
+            history,
+            color: self.color.opponent(),
+        })
     }
 
     pub fn board(&self) -> &Board {
@@ -248,6 +261,9 @@ impl Position {
 
         let king_from = self.board.king(self.color);
         let rook_from = self.color.castle_square(side);
+        if !self.history.unmoved_rooks.contains(rook_from) {
+            return None;
+        }
         let (king_to, rook_to, between, king_path) = castle_squares(self.color, side);
 
         if (self.board.occupied() & between).is_non_empty() {

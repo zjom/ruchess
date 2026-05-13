@@ -1,4 +1,4 @@
-use crate::{bitboard::Bitboard, board::Board, color::Color, mve::Move};
+use crate::{bitboard::Bitboard, board::Board, color::Color, mve::Move, square::Square};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnmovedRooks(Bitboard);
@@ -17,11 +17,15 @@ impl UnmovedRooks {
     }
 
     pub fn update(self, m: &Move) -> Self {
-        UnmovedRooks(!Bitboard::from(m.orig) & self)
+        UnmovedRooks(!(Bitboard::from(m.orig) | Bitboard::from(m.dest)) & self)
     }
 
     pub fn is_empty(&self) -> bool {
         *self == Self::NONE
+    }
+
+    pub fn contains(&self, sq: Square) -> bool {
+        self.0.is_set(sq)
     }
 }
 

@@ -13,7 +13,7 @@ pub struct History {
     pub castles: Castles,
     pub unmoved_rooks: UnmovedRooks,
     pub half_move_clock: HalfMoveClock,
-    pub positions: PositionHash,
+    pub position_hashes: PositionHash,
 }
 
 impl History {
@@ -23,7 +23,7 @@ impl History {
             castles: Castles::standard(),
             unmoved_rooks: UnmovedRooks::standard(),
             half_move_clock: HalfMoveClock::new(),
-            positions: PositionHash::empty(),
+            position_hashes: PositionHash::empty(),
         }
     }
 
@@ -36,17 +36,17 @@ impl History {
     pub fn push_position(self, position: &Position) -> Self {
         let entry = PositionHash::from_hash(Hash::from_position(position));
         Self {
-            positions: entry.combine(&self.positions),
+            position_hashes: entry.combine(&self.position_hashes),
             ..self
         }
     }
 
     pub fn is_threefold_repetition(&self) -> bool {
-        self.positions.is_repetition(3)
+        self.position_hashes.is_repetition(3)
     }
 
     pub fn is_fivefold_repetition(&self) -> bool {
-        self.positions.is_repetition(5)
+        self.position_hashes.is_repetition(5)
     }
 }
 

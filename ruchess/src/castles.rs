@@ -1,6 +1,8 @@
 use crate::{
     bitboard::Bitboard,
     color::Color,
+    mve::Move,
+    role::Role,
     side::Side,
     square::{self, Square},
 };
@@ -89,6 +91,14 @@ impl Castles {
 
     pub fn add(self, color: Color, side: Side) -> Self {
         Castles(self.0 | Bitboard::from(color.castle_square(side)))
+    }
+
+    pub fn with_move(self, m: &Move) -> Self {
+        if m.piece.role == Role::King || m.castle.is_some() {
+            self.without(m.piece.color)
+        } else {
+            self
+        }
     }
 
     /// Replace `color`'s rights wholesale.
