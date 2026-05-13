@@ -65,6 +65,10 @@ impl Position {
             .chain(self.queen_moves())
     }
 
+    pub fn valid_moves_at(&self, orig: Square) -> impl Iterator<Item = Move> {
+        self.valid_moves().filter(move |m| m.orig == orig)
+    }
+
     pub fn pawn_moves(&self) -> impl Iterator<Item = Move> {
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
