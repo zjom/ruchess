@@ -27,6 +27,7 @@ impl History {
         }
     }
 
+    #[must_use]
     pub fn with_castles(self, castles: Castles) -> Self {
         Self { castles, ..self }
     }
@@ -38,6 +39,14 @@ impl History {
             positions: entry.combine(&self.positions),
             ..self
         }
+    }
+
+    pub fn is_threefold_repetition(&self) -> bool {
+        self.positions.is_repetition(3)
+    }
+
+    pub fn is_fivefold_repetition(&self) -> bool {
+        self.positions.is_repetition(5)
     }
 }
 
