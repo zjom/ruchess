@@ -2,6 +2,7 @@ use crate::{
     attacks::ATTACKS,
     bitboard::Bitboard,
     board::Board,
+    castles::Castles,
     color::Color,
     history::History,
     mve::Move,
@@ -25,6 +26,32 @@ impl Position {
             board: Board::new(),
             history: History::new(),
             color: Color::White,
+        }
+    }
+
+    pub fn with_board(self, board: Board) -> Self {
+        Self { board, ..self }
+    }
+
+    pub fn with_color(self, color: Color) -> Self {
+        Self { color, ..self }
+    }
+    pub fn with_history(self, history: History) -> Self {
+        Self { history, ..self }
+    }
+    pub fn with_castles(self, castles: Castles) -> Self {
+        Self {
+            history: self.history.with_castles(castles),
+            ..self
+        }
+    }
+    pub fn update_history<F>(self, f: F) -> Self
+    where
+        F: FnOnce(History) -> History,
+    {
+        Self {
+            history: f(self.history),
+            ..self
         }
     }
 
