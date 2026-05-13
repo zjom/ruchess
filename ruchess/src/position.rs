@@ -63,6 +63,24 @@ impl Position {
         todo!()
     }
 
+    pub fn board(&self) -> &Board {
+        &self.board
+    }
+
+    pub fn color(&self) -> Color {
+        self.color
+    }
+
+    pub fn history(&self) -> &History {
+        &self.history
+    }
+
+    pub fn enpassant_square(&self) -> Option<Square> {
+        self.history
+            .last_move
+            .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color))
+    }
+
     pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
         self.pawn_moves()
             .chain(self.enpassant_moves())
