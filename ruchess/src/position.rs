@@ -55,6 +55,14 @@ impl Position {
         }
     }
 
+    pub fn mve(&self, orig: Square, dest: Square) -> Option<Self> {
+        if !self.valid_moves().any(|m| m.orig == orig && m.dest == dest) {
+            return None;
+        }
+
+        todo!()
+    }
+
     pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
         self.pawn_moves()
             .chain(self.enpassant_moves())
@@ -246,7 +254,7 @@ impl Position {
             castle: Some(side),
             enpassant: None,
             after,
-            previous: self.board,
+            previous: Some(self.board),
         })
     }
 
@@ -270,7 +278,7 @@ impl Position {
             castle: None,
             enpassant: None,
             after,
-            previous: self.board,
+            previous: Some(self.board),
         })
     }
 
@@ -290,7 +298,7 @@ impl Position {
             castle: None,
             enpassant: Some(()),
             after,
-            previous: self.board,
+            previous: Some(self.board),
         })
     }
 
@@ -321,7 +329,7 @@ impl Position {
                         castle: None,
                         enpassant: None,
                         after,
-                        previous: self.board,
+                        previous: Some(self.board),
                     })
                 } else {
                     self.board.mve(from, to).map(|after| Move {
@@ -336,7 +344,7 @@ impl Position {
                         castle: None,
                         enpassant: None,
                         after,
-                        previous: self.board,
+                        previous: Some(self.board),
                     })
                 }
             });

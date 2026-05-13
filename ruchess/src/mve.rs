@@ -10,5 +10,5 @@ pub struct Move {
     pub castle: Option<Side>,
     pub enpassant: Option<()>,
     pub after: Board,
-    pub previous: Board,
+    pub previous: Option<Board>,
 }
