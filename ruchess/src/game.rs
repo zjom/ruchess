@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{ply::Ply, position::Position, square::Square};
 
 #[derive(Debug, Default)]
@@ -19,5 +21,17 @@ impl Game {
             position,
             turn: self.turn.incr(),
         })
+    }
+}
+
+impl Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.position.board())?;
+        writeln!(
+            f,
+            "{:?} to move (move {})",
+            self.turn.turn(),
+            self.turn.full_move_number()
+        )
     }
 }
