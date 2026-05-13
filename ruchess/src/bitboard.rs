@@ -6,6 +6,8 @@ pub struct Bitboard(pub u64);
 impl Bitboard {
     pub const EMPTY: Bitboard = Bitboard(0);
     pub const FULL: Bitboard = Bitboard(u64::MAX);
+    pub const LIGHT: Bitboard = Bitboard(0x55AA_55AA_55AA_55AA);
+    pub const DARK: Bitboard = Bitboard(0xAA55_AA55_AA55_AA55);
 
     pub const fn new(value: u64) -> Self {
         Self(value)

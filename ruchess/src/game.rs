@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
 use crate::{
+    bitboard::Bitboard,
+    board::Board,
     outcome::{DrawReason, Outcome},
     ply::Ply,
     position::Position,
@@ -27,7 +29,9 @@ impl Game {
         self.position.mve(orig, dest).map(|position| {
             let has_moves = position.has_moves();
 
-            let outcome = if position.history().is_threefold_repetition() {
+            let outcome = if is_insufficient_material(position.board()) {
+                Some(Outcome::Draw(DrawReason::InsufficientMaterial))
+            } else if position.history().is_threefold_repetition() {
                 Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
             } else if position.history().half_moves() >= 50 {
                 Some(Outcome::Draw(DrawReason::FiftyMoveRule))
@@ -47,6 +51,39 @@ impl Game {
             }
         })
     }
+
+    pub fn outcome(&self) -> Option<Outcome> {
+        self.outcome
+    }
+
+    pub fn position(&self) -> &Position {
+        &self.position
+    }
+
+    pub fn ply(&self) -> Ply {
+        self.turn
+    }
+}
+fn is_insufficient_material(board: &Board) -> bool {
+    if board.pawns().is_non_empty() || board.rooks().is_non_empty() || board.queens().is_non_empty()
+    {
+        return false;
+    }
+
+    let minors = (board.knights() | board.bishops()).count();
+    if minors <= 1 {
+        return true;
+    }
+    if board.bishops().is_empty() && board.knights().count() == 2 {
+        return true;
+    }
+
+    if board.knights().is_empty() {
+        let bishops = board.bishops();
+        return (bishops & Bitboard::LIGHT).is_empty() || (bishops & Bitboard::DARK).is_empty();
+    }
+
+    false
 }
 
 impl Display for Game {
