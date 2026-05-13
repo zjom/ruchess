@@ -1,11 +1,12 @@
 use std::fmt::Display;
 
-use crate::{ply::Ply, position::Position, square::Square};
+use crate::{outcome::Outcome, ply::Ply, position::Position, square::Square};
 
 #[derive(Debug, Default)]
 pub struct Game {
     position: Position,
     turn: Ply,
+    outcome: Option<Outcome>,
 }
 
 impl Game {
@@ -13,6 +14,7 @@ impl Game {
         Self {
             position: Position::new(),
             turn: Ply::new(),
+            outcome: None,
         }
     }
 
@@ -20,6 +22,7 @@ impl Game {
         self.position.mve(orig, dest).map(|position| Self {
             position,
             turn: self.turn.incr(),
+            outcome: None,
         })
     }
 }
