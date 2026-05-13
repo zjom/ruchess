@@ -56,9 +56,9 @@ impl Position {
     }
 
     pub fn mve(&self, orig: Square, dest: Square) -> Option<Self> {
-        if !self.valid_moves().any(|m| m.orig == orig && m.dest == dest) {
-            return None;
-        }
+        let mve = self
+            .valid_moves()
+            .find(|m| m.orig == orig && m.dest == dest)?;
 
         todo!()
     }
@@ -242,64 +242,32 @@ impl Position {
             .mve(king_from, king_to)?
             .mve(rook_from, rook_to)?;
 
-        Some(Move {
-            piece: Piece {
-                role: Role::King,
-                color: self.color,
-            },
-            orig: king_from,
-            dest: king_to,
-            capture: None,
-            promotion: None,
-            castle: Some(side),
-            enpassant: None,
-            after,
-            previous: Some(self.board),
-        })
+        Some(Move::castle(
+            self.color, side, king_from, king_to, self.board, after,
+        ))
     }
 
     fn normal(&self, orig: Square, dest: Square, role: Role) -> Option<Move> {
-        let capture = self.board.is_occupied(dest).then_some(dest);
-        let after = if capture.is_some() {
-            self.board.capture(orig, dest, None)
-        } else {
-            self.board.mve(orig, dest)
+        let piece = Piece {
+            role,
+            color: self.color,
         };
-
-        after.map(|after| Move {
-            piece: Piece {
-                role,
-                color: self.color,
-            },
-            orig,
-            dest,
-            capture,
-            promotion: None,
-            castle: None,
-            enpassant: None,
-            after,
-            previous: Some(self.board),
-        })
+        if self.board.is_occupied(dest) {
+            let after = self.board.capture(orig, dest, None)?;
+            Some(Move::capture(piece, orig, dest, dest, self.board, after))
+        } else {
+            let after = self.board.mve(orig, dest)?;
+            Some(Move::quiet(piece, orig, dest, self.board, after))
+        }
     }
 
     /// Builds an enpassant [`Move`] from `orig` to `dest`.
     pub fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
-        let capture = Some(Square::from_file_and_rank(dest.file(), orig.rank()));
-
-        self.board.capture(orig, dest, capture).map(|after| Move {
-            piece: Piece {
-                role: Role::Pawn,
-                color: self.color,
-            },
-            orig,
-            dest,
-            capture,
-            promotion: None,
-            castle: None,
-            enpassant: Some(()),
-            after,
-            previous: Some(self.board),
-        })
+        let captured = Square::from_file_and_rank(dest.file(), orig.rank());
+        let after = self.board.capture(orig, dest, Some(captured))?;
+        Some(Move::enpassant(
+            self.color, orig, dest, captured, self.board, after,
+        ))
     }
 
     fn gen_pawn_moves(
@@ -316,37 +284,14 @@ impl Position {
             .into_iter()
             .flatten()
             .filter_map(move |r| {
-                if is_capture {
-                    self.board.capture(from, to, None).map(|after| Move {
-                        piece: Piece {
-                            role: Role::Pawn,
-                            color: self.color,
-                        },
-                        orig: from,
-                        dest: to,
-                        capture: Some(to),
-                        promotion: Some(r),
-                        castle: None,
-                        enpassant: None,
-                        after,
-                        previous: Some(self.board),
-                    })
+                let (after, captured) = if is_capture {
+                    (self.board.capture(from, to, None)?, Some(to))
                 } else {
-                    self.board.mve(from, to).map(|after| Move {
-                        piece: Piece {
-                            role: Role::Pawn,
-                            color: self.color,
-                        },
-                        orig: from,
-                        dest: to,
-                        capture: None,
-                        promotion: Some(r),
-                        castle: None,
-                        enpassant: None,
-                        after,
-                        previous: Some(self.board),
-                    })
-                }
+                    (self.board.mve(from, to)?, None)
+                };
+                Some(Move::promotion(
+                    self.color, from, to, r, captured, self.board, after,
+                ))
             });
 
         // 0 or 1 normal pawn moves — empty if it IS a promoting rank.
