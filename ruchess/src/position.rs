@@ -4,7 +4,6 @@ use crate::{
     board::Board,
     castles::Castles,
     color::Color,
-    hash::{Hash, PositionHash},
     history::History,
     mve::Move,
     piece::Piece,
@@ -66,26 +65,7 @@ impl Position {
             .valid_moves()
             .find(|m| m.orig == orig && m.dest == dest)?;
 
-        let entry = PositionHash::from_hash(Hash::from_position(&self));
-        let position_hashes = entry.combine(&self.history.position_hashes);
-
-        let last_move = Some(mve.into());
-        let castles = self.history.castles.update(&mve);
-        let unmoved_rooks = self.history.unmoved_rooks.update(&mve);
-
-        let half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
-            self.history.half_move_clock.reset()
-        } else {
-            self.history.half_move_clock.incr()
-        };
-
-        let history = History {
-            position_hashes,
-            last_move,
-            castles,
-            unmoved_rooks,
-            half_move_clock,
-        };
+        let history = self.history.clone().update(&self, &mve);
         Some(Self {
             board: mve.after,
             history,

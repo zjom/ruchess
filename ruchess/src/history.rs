@@ -2,7 +2,9 @@ use crate::{
     castles::Castles,
     halfmoveclock::HalfMoveClock,
     hash::{Hash, PositionHash},
+    mve::Move,
     position::Position,
+    role::Role,
     uci::Uci,
     unmoved_rooks::UnmovedRooks,
 };
@@ -38,6 +40,26 @@ impl History {
         Self {
             position_hashes: entry.combine(&self.position_hashes),
             ..self
+        }
+    }
+
+    #[must_use]
+    pub fn update(self, prev: &Position, mve: &Move) -> Self {
+        let entry = PositionHash::from_hash(Hash::from_position(prev));
+        let position_hashes = entry.combine(&self.position_hashes);
+
+        let half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
+            self.half_move_clock.reset()
+        } else {
+            self.half_move_clock.incr()
+        };
+
+        Self {
+            position_hashes,
+            last_move: Some((*mve).into()),
+            castles: self.castles.update(mve),
+            unmoved_rooks: self.unmoved_rooks.update(mve),
+            half_move_clock,
         }
     }
 
