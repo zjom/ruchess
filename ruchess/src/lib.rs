@@ -9,6 +9,7 @@ pub mod hash;
 pub mod history;
 pub mod magic;
 pub mod mve;
+pub mod outcome;
 pub mod piece;
 pub mod ply;
 pub mod position;
