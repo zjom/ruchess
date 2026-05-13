@@ -25,14 +25,14 @@ impl Game {
 
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         self.position.mve(orig, dest).map(|position| {
-            let has_moves = position.valid_moves().any(|_| true);
+            let has_moves = position.has_moves();
 
             let outcome = if position.history().is_threefold_repetition() {
                 Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
-            } else if position.is_check() && has_moves {
+            } else if position.is_check() && !has_moves {
                 let winner = position.color().opponent();
                 Some(Outcome::Win(winner))
-            } else if has_moves && position.clone().change_color().valid_moves().any(|_| true) {
+            } else if !has_moves && !position.clone().has_moves() {
                 Some(Outcome::Draw(DrawReason::Stalemate))
             } else {
                 None

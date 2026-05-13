@@ -104,6 +104,9 @@ impl Position {
             .chain(self.rook_moves())
             .chain(self.queen_moves())
     }
+    pub fn has_moves(&self) -> bool {
+        self.valid_moves().any(|_| true)
+    }
 
     pub fn valid_moves_at(&self, orig: Square) -> impl Iterator<Item = Move> {
         self.valid_moves().filter(move |m| m.orig == orig)
