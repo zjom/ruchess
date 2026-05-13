@@ -31,7 +31,13 @@ pub mod piece {
 }
 
 pub mod mve;
+pub mod position;
 
+pub mod history;
 mod game {}
 
+pub mod castles;
+pub mod halfmoveclock;
+pub mod side;
 pub mod uci;
+pub mod unmoved_rooks;

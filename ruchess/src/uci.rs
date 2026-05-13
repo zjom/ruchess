@@ -8,9 +8,9 @@ use crate::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct Uci {
-    orig: Square,
-    dest: Square,
-    promotion: Option<PromotableRole>,
+    pub orig: Square,
+    pub dest: Square,
+    pub promotion: Option<PromotableRole>,
 }
 
 impl Uci {
@@ -27,6 +27,12 @@ impl Uci {
             Some(r) => format!("{}{}{}", self.orig, self.dest, r.as_ascii()),
             None => format!("{}{}", self.orig, self.dest,),
         }
+    }
+}
+
+impl From<Move> for Uci {
+    fn from(value: Move) -> Self {
+        Self::from_move(value)
     }
 }
 

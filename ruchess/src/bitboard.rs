@@ -180,6 +180,12 @@ impl<T: Into<Bitboard>> std::ops::Shr<T> for Bitboard {
     }
 }
 
+impl<T: Into<Bitboard>> std::ops::BitOrAssign<T> for Bitboard {
+    fn bitor_assign(&mut self, rhs: T) {
+        self.0 |= rhs.into().0;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

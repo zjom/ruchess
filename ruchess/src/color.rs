@@ -1,4 +1,6 @@
+use crate::side::Side;
 use crate::square::Rank;
+use crate::square::{self, Square};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Color {
@@ -14,6 +16,22 @@ impl Color {
         }
     }
 
+    /// The rook's home square for this color and castling side.
+    pub fn castle_square(self, side: Side) -> Square {
+        match (self, side) {
+            (Color::White, Side::King) => square::H1,
+            (Color::White, Side::Queen) => square::A1,
+            (Color::Black, Side::King) => square::H8,
+            (Color::Black, Side::Queen) => square::A8,
+        }
+    }
+
+    pub fn back_rank(self) -> Rank {
+        match self {
+            Self::White => Rank::First,
+            Self::Black => Rank::Eighth,
+        }
+    }
     pub fn second_rank(self) -> Rank {
         match self {
             Self::White => Rank::Second,
