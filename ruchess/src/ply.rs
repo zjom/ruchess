@@ -2,7 +2,7 @@ use crate::color::Color;
 
 /// a half-move, that is a move of one side only.
 /// When we speak of a 6 ply search, we mean three full moves.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Ply(u32);
 
 impl Ply {

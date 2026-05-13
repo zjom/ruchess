@@ -1,12 +1,12 @@
 use crate::color::Color;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Outcome {
     Win(Color),
     Draw(DrawReason),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DrawReason {
     Stalemate,
     ThreeFoldRepetition,
