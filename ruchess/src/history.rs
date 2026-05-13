@@ -19,6 +19,10 @@ impl History {
             half_move_clock: HalfMoveClock::new(),
         }
     }
+
+    pub fn with_castles(self, castles: Castles) -> Self {
+        Self { castles, ..self }
+    }
 }
 
 impl Default for History {
