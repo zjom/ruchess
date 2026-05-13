@@ -159,6 +159,25 @@ impl Board {
                 | ATTACKS.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
     }
 
+    pub fn pawns(&self) -> Bitboard {
+        self.byrole(Role::Pawn)
+    }
+    pub fn rooks(&self) -> Bitboard {
+        self.byrole(Role::Rook)
+    }
+
+    pub fn knights(&self) -> Bitboard {
+        self.byrole(Role::Knight)
+    }
+
+    pub fn bishops(&self) -> Bitboard {
+        self.byrole(Role::Bishop)
+    }
+
+    pub fn queens(&self) -> Bitboard {
+        self.byrole(Role::Queen)
+    }
+
     pub fn king(&self, c: Color) -> Square {
         self.bypiece(Piece {
             role: Role::King,
@@ -168,14 +187,22 @@ impl Board {
         .expect("only 1 king per color")
     }
 
-    pub fn bypiece(&self, p: Piece) -> Bitboard {
-        self.byrole(p.role) & self.bycolor(p.color)
+    pub fn white(&self) -> Bitboard {
+        self.bycolor(Color::White)
+    }
+
+    pub fn black(&self) -> Bitboard {
+        self.bycolor(Color::Black)
+    }
+
+    pub fn bypiece(&self, Piece { role, color }: Piece) -> Bitboard {
+        self.byrole(role) & self.bycolor(color)
     }
     pub fn bycolor(&self, c: Color) -> Bitboard {
         *self.by_color.get(c)
     }
 
-    pub fn byrole(&self, r: Role) -> Bitboard {
+    fn byrole(&self, r: Role) -> Bitboard {
         *self.by_role.get(r)
     }
 
