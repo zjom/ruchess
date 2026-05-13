@@ -96,10 +96,10 @@ impl Position {
             self.gen_pawn_moves(from, to, false)
         });
 
-        captures.chain(single_moves).chain(double_moves).collect()
+        captures.chain(single_moves).chain(double_moves)
     }
 
-    pub fn enpassant_moves(&self) -> Vec<Move> {
+    pub fn enpassant_moves(&self) -> impl Iterator<Item = Move> {
         self.history
             .last_move
             .and_then(|last_move| {
@@ -111,29 +111,26 @@ impl Position {
                 Some(
                     (ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns)
                         .into_iter()
-                        .filter_map(|from| self.enpassant(from, target))
-                        .collect(),
+                        .filter_map(move |from| self.enpassant(from, target)),
                 )
             })
-            .unwrap_or(vec![])
+            .into_iter()
+            .flatten()
     }
 
-    pub fn king_moves(&self) -> Vec<Move> {
+    pub fn king_moves(&self) -> impl Iterator<Item = Move> {
         let orig = self.board.king(self.color);
-        let moves = ATTACKS.king_attacks(orig).filter_map(|dest| {
-            self.board
-                .is_attacked(dest, self.color.opponent())
-                .then_some(self.normal(orig, dest, Role::King)?)
+        let moves = ATTACKS.king_attacks(orig).filter_map(move |dest| {
+            (!self.board.is_attacked(dest, self.color.opponent())).then_some(self.normal(
+                orig,
+                dest,
+                Role::King,
+            )?)
         });
-
-        if let Some(castles) = self.castling_moves() {
-            moves.chain(castles).collect()
-        } else {
-            moves.collect()
-        }
+        moves.chain(self.castling_moves().into_iter().flatten())
     }
 
-    pub fn knight_moves(&self) -> Vec<Move> {
+    pub fn knight_moves(&self) -> impl Iterator<Item = Move> {
         let knights = self.board.bypiece(Piece {
             role: Role::Knight,
             color: self.color,
@@ -141,10 +138,9 @@ impl Position {
         knights
             .flat_map(|from| ATTACKS.knight_attacks(from).map(move |to| (from, to)))
             .filter_map(|(from, to)| self.normal(from, to, Role::Knight))
-            .collect()
     }
 
-    pub fn bishop_moves(&self) -> Vec<Move> {
+    pub fn bishop_moves(&self) -> impl Iterator<Item = Move> {
         let bishops = self.board.bypiece(Piece {
             role: Role::Bishop,
             color: self.color,
@@ -156,9 +152,8 @@ impl Position {
                     .map(move |to| (from, to))
             })
             .filter_map(|(from, to)| self.normal(from, to, Role::Bishop))
-            .collect()
     }
-    pub fn rook_moves(&self) -> Vec<Move> {
+    pub fn rook_moves(&self) -> impl Iterator<Item = Move> {
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
             color: self.color,
@@ -170,10 +165,9 @@ impl Position {
                     .map(move |to| (from, to))
             })
             .filter_map(|(from, to)| self.normal(from, to, Role::Rook))
-            .collect()
     }
 
-    pub fn queen_moves(&self) -> Vec<Move> {
+    pub fn queen_moves(&self) -> impl Iterator<Item = Move> {
         let queens = self.board.bypiece(Piece {
             role: Role::Queen,
             color: self.color,
@@ -188,8 +182,7 @@ impl Position {
                     .map(move |to| (from, to));
                 bishops.chain(rooks)
             })
-            .filter_map(|(from, to)| self.normal(from, to, Role::Rook))
-            .collect()
+            .filter_map(|(from, to)| self.normal(from, to, Role::Queen))
     }
 
     fn castling_moves(&self) -> Option<impl Iterator<Item = Move>> {
@@ -287,49 +280,60 @@ impl Position {
         })
     }
 
-    fn gen_pawn_moves(&self, from: Square, to: Square, is_capture: bool) -> Vec<Move> {
-        if from.rank() == self.color.seventh_rank() {
-            PromotableRole::ROLES
-                .into_iter()
-                .filter_map(|r| {
-                    if is_capture {
-                        self.board.capture(from, to, None).map(|after| Move {
-                            piece: Piece {
-                                role: Role::Pawn,
-                                color: self.color,
-                            },
-                            orig: from,
-                            dest: to,
-                            capture: Some(to),
-                            promotion: Some(r),
-                            castle: None,
-                            enpassant: None,
-                            after,
-                            previous: self.board,
-                        })
-                    } else {
-                        self.board.mve(from, to).map(|after| Move {
-                            piece: Piece {
-                                role: Role::Pawn,
-                                color: self.color,
-                            },
-                            orig: from,
-                            dest: to,
-                            capture: None,
-                            promotion: Some(r),
-                            castle: None,
-                            enpassant: None,
-                            after,
-                            previous: self.board,
-                        })
-                    }
-                })
-                .collect()
-        } else {
-            self.normal(from, to, Role::Pawn)
-                .map(|m| vec![m])
-                .unwrap_or(vec![])
-        }
+    fn gen_pawn_moves(
+        &self,
+        from: Square,
+        to: Square,
+        is_capture: bool,
+    ) -> impl Iterator<Item = Move> + '_ {
+        let is_promotion = from.rank() == self.color.seventh_rank();
+
+        // Up to 4 promotion moves — empty if not a promoting rank.
+        let promotions = is_promotion
+            .then_some(PromotableRole::ROLES)
+            .into_iter()
+            .flatten()
+            .filter_map(move |r| {
+                if is_capture {
+                    self.board.capture(from, to, None).map(|after| Move {
+                        piece: Piece {
+                            role: Role::Pawn,
+                            color: self.color,
+                        },
+                        orig: from,
+                        dest: to,
+                        capture: Some(to),
+                        promotion: Some(r),
+                        castle: None,
+                        enpassant: None,
+                        after,
+                        previous: self.board,
+                    })
+                } else {
+                    self.board.mve(from, to).map(|after| Move {
+                        piece: Piece {
+                            role: Role::Pawn,
+                            color: self.color,
+                        },
+                        orig: from,
+                        dest: to,
+                        capture: None,
+                        promotion: Some(r),
+                        castle: None,
+                        enpassant: None,
+                        after,
+                        previous: self.board,
+                    })
+                }
+            });
+
+        // 0 or 1 normal pawn moves — empty if it IS a promoting rank.
+        let normal = (!is_promotion)
+            .then(|| self.normal(from, to, Role::Pawn))
+            .flatten()
+            .into_iter();
+
+        promotions.chain(normal)
     }
 }
 
