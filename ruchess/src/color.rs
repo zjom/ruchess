@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::side::Side;
 use crate::square::Rank;
 use crate::square::{self, Square};
@@ -192,6 +194,15 @@ impl<T> ByColor<T> {
             Some((Color::Black, &self.black))
         } else {
             None
+        }
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::White => writeln!(f, "white"),
+            Self::Black => writeln!(f, "black"),
         }
     }
 }
