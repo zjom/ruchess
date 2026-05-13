@@ -5,6 +5,7 @@ pub mod castles;
 pub mod color;
 pub mod game;
 pub mod halfmoveclock;
+pub mod hash;
 pub mod history;
 pub mod magic;
 pub mod mve;
