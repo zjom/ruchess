@@ -1,6 +1,11 @@
 use std::fmt::Display;
 
-use crate::{outcome::Outcome, ply::Ply, position::Position, square::Square};
+use crate::{
+    outcome::{DrawReason, Outcome},
+    ply::Ply,
+    position::Position,
+    square::Square,
+};
 
 #[derive(Debug, Default)]
 pub struct Game {
@@ -19,10 +24,25 @@ impl Game {
     }
 
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
-        self.position.mve(orig, dest).map(|position| Self {
-            position,
-            turn: self.turn.incr(),
-            outcome: None,
+        self.position.mve(orig, dest).map(|position| {
+            let has_moves = position.valid_moves().any(|_| true);
+
+            let outcome = if position.history().is_threefold_repetition() {
+                Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
+            } else if position.is_check() && has_moves {
+                let winner = position.color().opponent();
+                Some(Outcome::Win(winner))
+            } else if has_moves && position.clone().change_color().valid_moves().any(|_| true) {
+                Some(Outcome::Draw(DrawReason::Stalemate))
+            } else {
+                None
+            };
+
+            Self {
+                position,
+                turn: self.turn.incr(),
+                outcome,
+            }
         })
     }
 }
