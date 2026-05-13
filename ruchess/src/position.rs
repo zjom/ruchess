@@ -85,6 +85,10 @@ impl Position {
         &self.history
     }
 
+    pub fn is_check(&self) -> bool {
+        self.board.is_check(self.color)
+    }
+
     pub fn enpassant_square(&self) -> Option<Square> {
         self.history
             .last_move
