@@ -29,6 +29,8 @@ impl Game {
 
             let outcome = if position.history().is_threefold_repetition() {
                 Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
+            } else if position.history().half_moves() >= 50 {
+                Some(Outcome::Draw(DrawReason::FiftyMoveRule))
             } else if position.is_check() && !has_moves {
                 let winner = position.color().opponent();
                 Some(Outcome::Win(winner))

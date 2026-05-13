@@ -70,6 +70,10 @@ impl History {
     pub fn is_fivefold_repetition(&self) -> bool {
         self.position_hashes.is_repetition(5)
     }
+
+    pub fn half_moves(&self) -> u8 {
+        self.half_move_clock.get()
+    }
 }
 
 impl Default for History {
