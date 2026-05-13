@@ -1,3 +1,5 @@
+use std::{error::Error, fmt::Display, str::FromStr};
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Role {
     Pawn,
@@ -18,6 +20,59 @@ pub enum PromotableRole {
 
 impl PromotableRole {
     pub const ROLES: [PromotableRole; 4] = [Self::Rook, Self::Knight, Self::Bishop, Self::Queen];
+
+    pub fn as_ascii(&self) -> char {
+        match self {
+            PromotableRole::Rook => 'r',
+            PromotableRole::Knight => 'n',
+            PromotableRole::Bishop => 'b',
+            PromotableRole::Queen => 'q',
+        }
+    }
+
+    pub fn from_ascii(c: char) -> Result<Self, ParseRoleError> {
+        match c {
+            'r' => Ok(PromotableRole::Rook),
+            'n' => Ok(PromotableRole::Knight),
+            'b' => Ok(PromotableRole::Bishop),
+            'q' => Ok(PromotableRole::Queen),
+            _ => Err(ParseRoleError(c.to_string())),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseRoleError(String);
+
+impl Display for ParseRoleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "invalid role: {}", self.0)
+    }
+}
+impl Error for ParseRoleError {}
+
+impl FromStr for PromotableRole {
+    type Err = ParseRoleError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 1 {
+            return Err(ParseRoleError(s.to_string()));
+        };
+
+        Self::from_ascii(s.chars().nth(0).unwrap())
+    }
+}
+
+impl TryFrom<char> for PromotableRole {
+    type Error = ParseRoleError;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        PromotableRole::from_ascii(value)
+    }
+}
+impl TryFrom<u8> for PromotableRole {
+    type Error = ParseRoleError;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        PromotableRole::from_ascii(value.into())
+    }
 }
 
 impl Role {

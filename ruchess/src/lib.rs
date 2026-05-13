@@ -33,3 +33,5 @@ pub mod piece {
 pub mod mve;
 
 mod game {}
+
+pub mod uci;
