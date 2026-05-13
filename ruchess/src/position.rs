@@ -55,7 +55,17 @@ impl Position {
         }
     }
 
-    pub fn pawn_moves(&self) -> Vec<Move> {
+    pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
+        self.pawn_moves()
+            .chain(self.enpassant_moves())
+            .chain(self.king_moves())
+            .chain(self.knight_moves())
+            .chain(self.bishop_moves())
+            .chain(self.rook_moves())
+            .chain(self.queen_moves())
+    }
+
+    pub fn pawn_moves(&self) -> impl Iterator<Item = Move> {
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
             color: self.color,
