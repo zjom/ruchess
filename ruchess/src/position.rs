@@ -36,6 +36,11 @@ impl Position {
     pub fn with_color(self, color: Color) -> Self {
         Self { color, ..self }
     }
+
+    pub fn change_color(self) -> Self {
+        let color = self.color;
+        self.with_color(color)
+    }
     pub fn with_history(self, history: History) -> Self {
         Self { history, ..self }
     }
