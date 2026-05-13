@@ -70,7 +70,7 @@ impl Position {
         let history = History {
             position_hashes: positions,
             last_move: Some(mve.into()),
-            castles: self.history.castles.with_move(&mve),
+            castles: self.history.castles.update(&mve),
             unmoved_rooks: self.history.unmoved_rooks.update(&mve),
             half_move_clock: self.history.half_move_clock.incr(),
         };

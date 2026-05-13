@@ -93,7 +93,7 @@ impl Castles {
         Castles(self.0 | Bitboard::from(color.castle_square(side)))
     }
 
-    pub fn with_move(self, m: &Move) -> Self {
+    pub fn update(self, m: &Move) -> Self {
         if m.piece.role == Role::King || m.castle.is_some() {
             self.without(m.piece.color)
         } else {
@@ -102,7 +102,7 @@ impl Castles {
     }
 
     /// Replace `color`'s rights wholesale.
-    pub fn update(self, color: Color, king_side: bool, queen_side: bool) -> Self {
+    pub fn set(self, color: Color, king_side: bool, queen_side: bool) -> Self {
         let stripped = self.without(color).0;
         let ks = if king_side {
             Bitboard::from(color.castle_square(Side::King))
