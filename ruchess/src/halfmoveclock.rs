@@ -14,6 +14,10 @@ impl HalfMoveClock {
     pub fn get(self) -> u8 {
         self.0
     }
+
+    pub fn reset(self) -> Self {
+        Self(0)
+    }
 }
 
 impl From<HalfMoveClock> for u8 {

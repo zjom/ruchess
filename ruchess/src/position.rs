@@ -65,14 +65,26 @@ impl Position {
         let mve = self
             .valid_moves()
             .find(|m| m.orig == orig && m.dest == dest)?;
+
         let entry = PositionHash::from_hash(Hash::from_position(&self));
-        let positions = entry.combine(&self.history.position_hashes);
+        let position_hashes = entry.combine(&self.history.position_hashes);
+
+        let last_move = Some(mve.into());
+        let castles = self.history.castles.update(&mve);
+        let unmoved_rooks = self.history.unmoved_rooks.update(&mve);
+
+        let half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
+            self.history.half_move_clock.reset()
+        } else {
+            self.history.half_move_clock.incr()
+        };
+
         let history = History {
-            position_hashes: positions,
-            last_move: Some(mve.into()),
-            castles: self.history.castles.update(&mve),
-            unmoved_rooks: self.history.unmoved_rooks.update(&mve),
-            half_move_clock: self.history.half_move_clock.incr(),
+            position_hashes,
+            last_move,
+            castles,
+            unmoved_rooks,
+            half_move_clock,
         };
         Some(Self {
             board: mve.after,
