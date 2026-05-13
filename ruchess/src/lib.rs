@@ -1,26 +1,17 @@
-pub mod bitboard;
-
 pub mod attacks;
-pub mod magic;
-
+pub mod bitboard;
 pub mod board;
-
-pub mod square;
-
-pub mod role;
-
-pub mod color;
-
-pub mod piece;
-
-pub mod mve;
-pub mod position;
-
-pub mod history;
-mod game {}
-
 pub mod castles;
+pub mod color;
+pub mod game;
 pub mod halfmoveclock;
+pub mod history;
+pub mod magic;
+pub mod mve;
+pub mod piece;
+pub mod position;
+pub mod role;
 pub mod side;
+pub mod square;
 pub mod uci;
 pub mod unmoved_rooks;
