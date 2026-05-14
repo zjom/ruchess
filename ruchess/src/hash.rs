@@ -1,3 +1,14 @@
+//! # Zobrist Hashing
+//!
+//! Position fingerprints used for repetition detection and (eventually)
+//! transposition tables. Each [`Position`] gets a 24-bit [`Hash`], computed
+//! by XOR-folding precomputed random values for every (color, role, square),
+//! the side to move, castling rights, and the en-passant file.
+//!
+//! [`PositionHash`] stacks several `Hash` values into a packed byte trail —
+//! used by [`History`](crate::history::History) to test for threefold and
+//! fivefold repetition without retaining whole positions.
+
 use crate::{
     color::{ByColor, Color},
     piece::Piece,
@@ -18,10 +29,12 @@ impl Hash {
         Self(value >> 8)
     }
 
+    /// Computes the Zobrist hash of `position`, truncated to 24 bits.
     pub fn from_position(position: &Position) -> Self {
         Self(hash_position(position) >> 8)
     }
 
+    /// Returns the underlying 24-bit value (in the low bits of a `u32`).
     pub fn value(self) -> u32 {
         self.0
     }
@@ -36,26 +49,36 @@ impl Hash {
 pub struct PositionHash(Vec<u8>);
 
 impl PositionHash {
+    /// Wraps an existing byte vector. The caller is responsible for ensuring
+    /// the length is a multiple of [`Hash::SIZE`] if repetition detection is
+    /// to behave correctly.
     pub fn new(value: Vec<u8>) -> Self {
         Self(value)
     }
 
+    /// Returns an empty trail with no entries.
     pub fn empty() -> Self {
         Self(Vec::new())
     }
 
+    /// Builds a single-entry trail containing the three high bytes of `h`,
+    /// in big-endian order.
     pub fn from_hash(h: Hash) -> Self {
         Self(vec![(h.0 >> 16) as u8, (h.0 >> 8) as u8, h.0 as u8])
     }
 
+    /// Returns the raw byte buffer.
     pub fn value(&self) -> &[u8] {
         &self.0
     }
 
+    /// Returns `true` if no positions have been recorded.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Prepends `self`'s entries with `other`'s, producing a trail that
+    /// keeps `self` (most recent) at the front.
     #[must_use]
     pub fn combine(mut self, other: &PositionHash) -> Self {
         self.0.extend_from_slice(&other.0);
@@ -88,6 +111,9 @@ impl PositionHash {
     }
 }
 
+/// Computes the full 32-bit Zobrist hash for a position by XOR-folding the
+/// per-(color, role, square) masks, the side-to-move mask, the four castling
+/// masks, and the en-passant file mask.
 fn hash_position(position: &Position) -> u32 {
     let mut h: u32 = 0;
 
