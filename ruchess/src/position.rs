@@ -39,7 +39,7 @@ impl Position {
 
     pub fn change_color(self) -> Self {
         let color = self.color;
-        self.with_color(color)
+        self.with_color(color.opponent())
     }
     pub fn with_history(self, history: History) -> Self {
         Self { history, ..self }
