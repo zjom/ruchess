@@ -205,193 +205,354 @@ mod tests {
     }
 
     #[test]
+    fn light_and_dark_partition_full() {
+        assert_eq!(Bitboard::LIGHT | Bitboard::DARK, Bitboard::FULL);
+        assert_eq!(Bitboard::LIGHT & Bitboard::DARK, Bitboard::EMPTY);
+    }
+
+    #[test]
     fn new_roundtrips_value() {
         assert_eq!(Bitboard::new(42).0, 42);
     }
+}
 
-    // ── set / unset / toggle / is_set ────────────────────────────────────────
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
 
-    #[test]
-    fn set_adds_bits() {
-        let a = Bitboard(0b0011);
-        let b = Bitboard(0b1100);
-        assert_eq!(a.set(b), Bitboard(0b1111));
+    fn bb() -> impl Strategy<Value = Bitboard> {
+        any::<u64>().prop_map(Bitboard)
     }
 
-    #[test]
-    fn set_is_idempotent() {
-        let a = Bitboard(0b1111);
-        assert_eq!(a.set(Bitboard(0b1010)), Bitboard(0b1111));
+    fn sq() -> impl Strategy<Value = Square> {
+        (0u8..64).prop_map(Square)
     }
 
-    #[test]
-    fn unset_clears_bits() {
-        let a = Bitboard(0b1111);
-        let b = Bitboard(0b0101);
-        assert_eq!(a.unset(b), Bitboard(0b1010));
-    }
+    proptest! {
+        // ── Boolean-algebra laws ─────────────────────────────────────────────
 
-    #[test]
-    fn unset_with_non_overlapping_mask_is_noop() {
-        let a = Bitboard(0b1010);
-        assert_eq!(a.unset(Bitboard(0b0101)), Bitboard(0b1010));
-    }
-
-    #[test]
-    fn unset_all_yields_empty() {
-        assert_eq!(Bitboard::FULL.unset(Bitboard::FULL), Bitboard::EMPTY);
-    }
-
-    #[test]
-    fn toggle_flips_bits() {
-        let a = Bitboard(0b1100);
-        let b = Bitboard(0b1010);
-        assert_eq!(a.toggle(b), Bitboard(0b0110));
-    }
-
-    #[test]
-    fn toggle_twice_is_identity() {
-        let a = Bitboard(0b1010_1010);
-        let mask = Bitboard(0b1111_0000);
-        assert_eq!(a.toggle(mask).toggle(mask), a);
-    }
-
-    #[test]
-    fn is_set_returns_true_when_bit_present() {
-        assert!(Bitboard(0b1010).is_set(Bitboard(0b0010)));
-    }
-
-    #[test]
-    fn is_set_returns_false_when_bit_absent() {
-        assert!(!Bitboard(0b1010).is_set(Bitboard(0b0101)));
-    }
-
-    #[test]
-    fn is_set_on_empty_is_always_false() {
-        assert!(!Bitboard::EMPTY.is_set(Bitboard::FULL));
-    }
-
-    // ── Not ─────────────────────────────────────────────────────────────────
-
-    #[test]
-    fn not_inverts_all_bits() {
-        assert_eq!(!Bitboard::EMPTY, Bitboard::FULL);
-        assert_eq!(!Bitboard::FULL, Bitboard::EMPTY);
-    }
-
-    #[test]
-    fn not_inverts_partial_bits() {
-        assert_eq!(
-            !Bitboard(0x00FF_FFFF_FFFF_FFFF),
-            Bitboard(0xFF00_0000_0000_0000)
-        );
-    }
-
-    #[test]
-    fn not_twice_is_identity() {
-        let b = Bitboard(0xDEAD_BEEF_CAFE_1234);
-        assert_eq!(!!b, b);
-    }
-
-    // ── BitAnd / BitOr / BitXor ──────────────────────────────────────────────
-
-    #[test]
-    fn bitand_intersects() {
-        assert_eq!(Bitboard(0b1100) & Bitboard(0b1010), Bitboard(0b1000));
-    }
-
-    #[test]
-    fn bitand_with_empty_yields_empty() {
-        assert_eq!(Bitboard::FULL & Bitboard::EMPTY, Bitboard::EMPTY);
-    }
-
-    #[test]
-    fn bitand_with_full_is_identity() {
-        let b = Bitboard(0xABCD);
-        assert_eq!(b & Bitboard::FULL, b);
-    }
-
-    #[test]
-    fn bitor_unions() {
-        assert_eq!(Bitboard(0b1100) | Bitboard(0b0011), Bitboard(0b1111));
-    }
-
-    #[test]
-    fn bitor_with_empty_is_identity() {
-        let b = Bitboard(0xABCD);
-        assert_eq!(b | Bitboard::EMPTY, b);
-    }
-
-    #[test]
-    fn bitor_with_full_yields_full() {
-        assert_eq!(Bitboard(0x1234) | Bitboard::FULL, Bitboard::FULL);
-    }
-
-    #[test]
-    fn bitxor_differs() {
-        assert_eq!(Bitboard(0b1100) ^ Bitboard(0b1010), Bitboard(0b0110));
-    }
-
-    #[test]
-    fn bitxor_self_yields_empty() {
-        let b = Bitboard(0xDEAD_BEEF);
-        assert_eq!(b ^ b, Bitboard::EMPTY);
-    }
-
-    #[test]
-    fn bitxor_with_empty_is_identity() {
-        let b = Bitboard(0xABCD);
-        assert_eq!(b ^ Bitboard::EMPTY, b);
-    }
-
-    // ── From conversions ─────────────────────────────────────────────────────
-
-    #[test]
-    fn from_u64_roundtrips() {
-        let val: u64 = 0x0123_4567_89AB_CDEF;
-        assert_eq!(Bitboard::from(val).0, val);
-    }
-
-    #[test]
-    fn from_square_sets_exactly_one_bit() {
-        for i in 0u8..64 {
-            let sq = Square(i);
-            let bb = Bitboard::from(sq);
-            assert_eq!(bb.0.count_ones(), 1);
-            assert_eq!(bb.0, 1_u64 << i);
+        #[test]
+        fn and_is_commutative(a in bb(), b in bb()) {
+            prop_assert_eq!(a & b, b & a);
         }
-    }
 
-    // ── Derived traits ───────────────────────────────────────────────────────
+        #[test]
+        fn or_is_commutative(a in bb(), b in bb()) {
+            prop_assert_eq!(a | b, b | a);
+        }
 
-    #[test]
-    fn eq_and_ne() {
-        assert_eq!(Bitboard(7), Bitboard(7));
-        assert_ne!(Bitboard(7), Bitboard(8));
-    }
+        #[test]
+        fn xor_is_commutative(a in bb(), b in bb()) {
+            prop_assert_eq!(a ^ b, b ^ a);
+        }
 
-    #[test]
-    fn copy_is_independent() {
-        let a = Bitboard(0xFF);
-        let b = a; // Copy
-        assert_eq!(a, b);
-    }
+        #[test]
+        fn and_is_associative(a in bb(), b in bb(), c in bb()) {
+            prop_assert_eq!((a & b) & c, a & (b & c));
+        }
 
-    #[test]
-    fn debug_contains_inner_value() {
-        let s = format!("{:?}", Bitboard(255));
-        assert!(s.contains("255"));
-    }
+        #[test]
+        fn or_is_associative(a in bb(), b in bb(), c in bb()) {
+            prop_assert_eq!((a | b) | c, a | (b | c));
+        }
 
-    #[test]
-    fn hash_equal_boards_have_equal_hashes() {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
+        #[test]
+        fn xor_is_associative(a in bb(), b in bb(), c in bb()) {
+            prop_assert_eq!((a ^ b) ^ c, a ^ (b ^ c));
+        }
 
-        let mut h1 = DefaultHasher::new();
-        let mut h2 = DefaultHasher::new();
-        Bitboard(42).hash(&mut h1);
-        Bitboard(42).hash(&mut h2);
-        assert_eq!(h1.finish(), h2.finish());
+        #[test]
+        fn and_distributes_over_or(a in bb(), b in bb(), c in bb()) {
+            prop_assert_eq!(a & (b | c), (a & b) | (a & c));
+        }
+
+        #[test]
+        fn or_distributes_over_and(a in bb(), b in bb(), c in bb()) {
+            prop_assert_eq!(a | (b & c), (a | b) & (a | c));
+        }
+
+        #[test]
+        fn and_is_idempotent(a in bb()) {
+            prop_assert_eq!(a & a, a);
+        }
+
+        #[test]
+        fn or_is_idempotent(a in bb()) {
+            prop_assert_eq!(a | a, a);
+        }
+
+        #[test]
+        fn xor_with_self_is_empty(a in bb()) {
+            prop_assert_eq!(a ^ a, Bitboard::EMPTY);
+        }
+
+        #[test]
+        fn and_empty_is_empty(a in bb()) {
+            prop_assert_eq!(a & Bitboard::EMPTY, Bitboard::EMPTY);
+        }
+
+        #[test]
+        fn and_full_is_identity(a in bb()) {
+            prop_assert_eq!(a & Bitboard::FULL, a);
+        }
+
+        #[test]
+        fn or_empty_is_identity(a in bb()) {
+            prop_assert_eq!(a | Bitboard::EMPTY, a);
+        }
+
+        #[test]
+        fn or_full_is_full(a in bb()) {
+            prop_assert_eq!(a | Bitboard::FULL, Bitboard::FULL);
+        }
+
+        #[test]
+        fn xor_empty_is_identity(a in bb()) {
+            prop_assert_eq!(a ^ Bitboard::EMPTY, a);
+        }
+
+        #[test]
+        fn xor_full_is_complement(a in bb()) {
+            prop_assert_eq!(a ^ Bitboard::FULL, !a);
+        }
+
+        #[test]
+        fn not_is_involution(a in bb()) {
+            prop_assert_eq!(!!a, a);
+        }
+
+        #[test]
+        fn de_morgan_and(a in bb(), b in bb()) {
+            prop_assert_eq!(!(a & b), !a | !b);
+        }
+
+        #[test]
+        fn de_morgan_or(a in bb(), b in bb()) {
+            prop_assert_eq!(!(a | b), !a & !b);
+        }
+
+        // ── set / unset / toggle / is_set ────────────────────────────────────
+
+        #[test]
+        fn set_matches_bitor(a in bb(), b in bb()) {
+            prop_assert_eq!(a.set(b), a | b);
+        }
+
+        #[test]
+        fn unset_matches_bitand_not(a in bb(), b in bb()) {
+            prop_assert_eq!(a.unset(b), a & !b);
+        }
+
+        #[test]
+        fn toggle_matches_bitxor(a in bb(), b in bb()) {
+            prop_assert_eq!(a.toggle(b), a ^ b);
+        }
+
+        #[test]
+        fn set_is_idempotent(a in bb(), b in bb()) {
+            prop_assert_eq!(a.set(b).set(b), a.set(b));
+        }
+
+        #[test]
+        fn unset_is_idempotent(a in bb(), b in bb()) {
+            prop_assert_eq!(a.unset(b).unset(b), a.unset(b));
+        }
+
+        #[test]
+        fn toggle_twice_is_identity(a in bb(), b in bb()) {
+            prop_assert_eq!(a.toggle(b).toggle(b), a);
+        }
+
+        #[test]
+        fn set_empty_is_identity(a in bb()) {
+            prop_assert_eq!(a.set(Bitboard::EMPTY), a);
+        }
+
+        #[test]
+        fn unset_empty_is_identity(a in bb()) {
+            prop_assert_eq!(a.unset(Bitboard::EMPTY), a);
+        }
+
+        #[test]
+        fn toggle_empty_is_identity(a in bb()) {
+            prop_assert_eq!(a.toggle(Bitboard::EMPTY), a);
+        }
+
+        #[test]
+        fn set_full_is_full(a in bb()) {
+            prop_assert_eq!(a.set(Bitboard::FULL), Bitboard::FULL);
+        }
+
+        #[test]
+        fn unset_full_is_empty(a in bb()) {
+            prop_assert_eq!(a.unset(Bitboard::FULL), Bitboard::EMPTY);
+        }
+
+        #[test]
+        fn toggle_full_is_complement(a in bb()) {
+            prop_assert_eq!(a.toggle(Bitboard::FULL), !a);
+        }
+
+        #[test]
+        fn set_then_unset_clears(a in bb(), b in bb()) {
+            prop_assert_eq!(a.set(b).unset(b), a.unset(b));
+        }
+
+        #[test]
+        fn unset_then_set_fills(a in bb(), b in bb()) {
+            prop_assert_eq!(a.unset(b).set(b), a.set(b));
+        }
+
+        #[test]
+        fn is_set_iff_intersection_nonempty(a in bb(), b in bb()) {
+            prop_assert_eq!(a.is_set(b), !(a & b).is_empty());
+        }
+
+        #[test]
+        fn is_empty_negates_is_non_empty(a in bb()) {
+            prop_assert_eq!(a.is_empty(), !a.is_non_empty());
+        }
+
+        #[test]
+        fn empty_is_never_set(a in bb()) {
+            prop_assert!(!Bitboard::EMPTY.is_set(a));
+            prop_assert!(!a.is_set(Bitboard::EMPTY));
+        }
+
+        // ── Single-square set / unset / is_set ───────────────────────────────
+
+        #[test]
+        fn set_single_square_adds_bit(a in bb(), s in sq()) {
+            let after = a.set(s);
+            prop_assert!(after.is_set(s));
+            prop_assert_eq!(after.0 | a.0, after.0); // never clears existing bits
+        }
+
+        #[test]
+        fn unset_single_square_clears_bit(a in bb(), s in sq()) {
+            let after = a.unset(s);
+            prop_assert!(!after.is_set(s));
+            prop_assert_eq!(after.0 & a.0, after.0); // only clears bits
+        }
+
+        #[test]
+        fn is_set_matches_underlying_bit(a in bb(), s in sq()) {
+            let expected = (a.0 >> s.0) & 1 == 1;
+            prop_assert_eq!(a.is_set(s), expected);
+        }
+
+        // ── Shifts ───────────────────────────────────────────────────────────
+
+        #[test]
+        fn shl_zero_is_identity(a in bb()) {
+            prop_assert_eq!(a << Bitboard(0), a);
+        }
+
+        #[test]
+        fn shr_zero_is_identity(a in bb()) {
+            prop_assert_eq!(a >> Bitboard(0), a);
+        }
+
+        #[test]
+        fn shl_then_shr_clears_low_bits(a in bb(), n in 0u64..64) {
+            let shifted = (a << Bitboard(n)) >> Bitboard(n);
+            let expected = Bitboard((a.0 << n) >> n);
+            prop_assert_eq!(shifted, expected);
+        }
+
+        // ── BitOrAssign ──────────────────────────────────────────────────────
+
+        #[test]
+        fn bit_or_assign_matches_bit_or(a in bb(), b in bb()) {
+            let mut x = a;
+            x |= b;
+            prop_assert_eq!(x, a | b);
+        }
+
+        // ── Conversions ──────────────────────────────────────────────────────
+
+        #[test]
+        fn from_u64_roundtrip(v in any::<u64>()) {
+            prop_assert_eq!(Bitboard::from(v).0, v);
+        }
+
+        #[test]
+        fn from_square_has_one_bit(s in sq()) {
+            let bb = Bitboard::from(s);
+            prop_assert_eq!(bb.0.count_ones(), 1);
+            prop_assert_eq!(bb.0, 1u64 << s.0);
+        }
+
+        #[test]
+        fn square_try_from_singleton_roundtrip(s in sq()) {
+            let bb = Bitboard::from(s);
+            prop_assert_eq!(Square::try_from(bb), Ok(s));
+        }
+
+        #[test]
+        fn square_try_from_fails_for_non_singletons(a in bb()) {
+            prop_assume!(a.0.count_ones() != 1);
+            prop_assert_eq!(Square::try_from(a), Err(()));
+        }
+
+        #[test]
+        fn from_rank_has_eight_bits(r in 0u32..8) {
+            let bb = Bitboard::from(Rank::new(r));
+            prop_assert_eq!(bb.0.count_ones(), 8);
+        }
+
+        #[test]
+        fn from_file_has_eight_bits(f in 0u32..8) {
+            let bb = Bitboard::from(File::new(f));
+            prop_assert_eq!(bb.0.count_ones(), 8);
+        }
+
+        #[test]
+        fn square_belongs_to_its_rank_and_file(s in sq()) {
+            let r = Bitboard::from(s.rank());
+            let f = Bitboard::from(s.file());
+            prop_assert!(r.is_set(s));
+            prop_assert!(f.is_set(s));
+            prop_assert_eq!(r & f, Bitboard::from(s));
+        }
+
+        // ── Iterator ─────────────────────────────────────────────────────────
+
+        #[test]
+        fn iter_yields_count_ones_items(a in bb()) {
+            let squares: Vec<Square> = a.into_iter().collect();
+            prop_assert_eq!(squares.len() as u32, a.0.count_ones());
+        }
+
+        #[test]
+        fn iter_yields_ascending_squares(a in bb()) {
+            let squares: Vec<Square> = a.into_iter().collect();
+            for w in squares.windows(2) {
+                prop_assert!(w[0].0 < w[1].0);
+            }
+        }
+
+        #[test]
+        fn iter_yields_only_set_bits(a in bb()) {
+            for s in a {
+                prop_assert!(a.is_set(s));
+            }
+        }
+
+        #[test]
+        fn iter_reconstructs_original(a in bb()) {
+            let mut acc = Bitboard::EMPTY;
+            for s in a {
+                acc |= Bitboard::from(s);
+            }
+            prop_assert_eq!(acc, a);
+        }
+
+        #[test]
+        fn empty_iter_yields_nothing(()in Just(())) {
+            prop_assert_eq!(Bitboard::EMPTY.into_iter().count(), 0);
+        }
+
     }
 }
