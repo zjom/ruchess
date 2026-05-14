@@ -9,6 +9,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Widget},
 };
+use ruchess::outcome::Outcome;
 use ruchess::uci::Uci;
 use ruchess::{color::Color as ChessColor, game::Game, piece::Piece, role::Role, square::Square};
 
@@ -303,10 +304,20 @@ fn render_board(app: &App, area: Rect, buf: &mut Buffer) {
 }
 
 fn render_info(app: &App, area: Rect, buf: &mut Buffer) {
-    let (turn_label, turn_fg) = if app.game.is_white_turn() {
-        ("● White to move", Color::Rgb(255, 255, 255))
+    let (turn_label, turn_fg) = if let Some(outcome) = app.game.outcome() {
+        match outcome {
+            Outcome::Win(ChessColor::White) => {
+                ("White wins!".to_string(), Color::Rgb(255, 255, 255))
+            }
+            Outcome::Win(ChessColor::Black) => {
+                ("Black wins!".to_string(), Color::Rgb(150, 150, 150))
+            }
+            Outcome::Draw(reason) => (format!("Draw by: {}", reason), Color::Rgb(255, 255, 255)),
+        }
+    } else if app.game.is_white_turn() {
+        ("● White to move".to_string(), Color::Rgb(255, 255, 255))
     } else {
-        ("● Black to move", Color::Rgb(150, 150, 150))
+        ("● Black to move".to_string(), Color::Rgb(150, 150, 150))
     };
 
     let mut lines = vec![
