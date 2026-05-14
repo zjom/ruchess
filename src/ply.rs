@@ -64,6 +64,20 @@ impl Ply {
         Self(self.0 + 1)
     }
 
+    /// Returns a new ply with the counter rolled back one half-move.
+    ///
+    /// # Panics
+    /// Panics if called on `Ply::new()` (counter would underflow).
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::ply::Ply;
+    /// assert_eq!(Ply::new().incr().decr(), Ply::new());
+    /// ```
+    pub fn decr(self) -> Self {
+        Self(self.0 - 1)
+    }
+
     /// Returns the current full-move number (1-based), as it would appear in
     /// chess notation.
     ///

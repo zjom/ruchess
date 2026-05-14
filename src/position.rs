@@ -69,6 +69,21 @@ pub struct Position {
     ply: Ply,
 }
 
+/// Token returned by [`Position::make`] that captures the prior position
+/// state so [`Position::unmake`] can roll back exactly.
+///
+/// Stack-allocated, opaque to callers; size is dominated by the cached
+/// `Board` (one `u64` per role/color bitboard).
+#[derive(Debug, Clone)]
+pub struct Undo {
+    prior_board: Board,
+    prior_castles: crate::castles::Castles,
+    prior_unmoved_rooks: crate::unmoved_rooks::UnmovedRooks,
+    prior_half_move_clock: crate::halfmoveclock::HalfMoveClock,
+    prior_last_move: Option<Uci>,
+    prior_position_hashes: crate::hash::PositionHash,
+}
+
 impl Position {
     /// Returns the standard chess starting position: pieces in their initial
     /// squares, all four castling rights, White to move, no en-passant target.
@@ -257,7 +272,7 @@ impl Position {
     /// assert!(Position::new().mve(square::E2, square::E5, None).is_none());
     /// ```
     pub fn mve(
-        self,
+        mut self,
         orig: Square,
         dest: Square,
         promotion: Option<PromotableRole>,
@@ -265,14 +280,92 @@ impl Position {
         let mve = self
             .valid_moves()
             .find(|m| m.orig == orig && m.dest == dest && m.promotion == promotion)?;
+        self.make(&mve);
+        Some(self)
+    }
 
-        let history = self.history.clone().update(&self, &mve);
-        Some(Self {
-            board: mve.after,
-            history,
-            color: self.color.opponent(),
-            ply: self.ply.incr(),
-        })
+    /// Plays `mve` in place and returns an [`Undo`] token. Pair with
+    /// [`Self::unmake`] to step back.
+    ///
+    /// `mve` must be a legal move for this position. Behavior is undefined
+    /// otherwise (typically: an invalid board state).
+    ///
+    /// The hot path used by perft and search: no allocation, no clone of
+    /// the position, the move's already-built `after` board is installed
+    /// directly, and the prior state is stashed in `Undo`.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::color::Color;
+    /// let mut p = Position::new();
+    /// let m = p.valid_moves().next().unwrap();
+    /// let undo = p.make(&m);
+    /// assert_eq!(p.color(), Color::Black);
+    /// p.unmake(undo);
+    /// assert_eq!(p.color(), Color::White);
+    /// ```
+    pub fn make(&mut self, mve: &Move) -> Undo {
+        let prior_board = self.board;
+        let prior_castles = self.history.castles;
+        let prior_unmoved_rooks = self.history.unmoved_rooks;
+        let prior_half_move_clock = self.history.half_move_clock;
+        let prior_last_move = self.history.last_move;
+
+        // Compute the new hash trail before mutating board/color (the hash
+        // depends on the prior position state). For Disabled, no work happens.
+        let prior_position_hashes = std::mem::replace(
+            &mut self.history.position_hashes,
+            crate::hash::PositionHash::Disabled,
+        );
+        let new_hashes = if prior_position_hashes.is_disabled() {
+            crate::hash::PositionHash::Disabled
+        } else {
+            let entry = crate::hash::PositionHash::from_hash(crate::hash::Hash::from_position(self));
+            entry.combine(&prior_position_hashes)
+        };
+        self.history.position_hashes = new_hashes;
+
+        // Apply the rest of the history update in place.
+        self.history.last_move = Some((*mve).into());
+        self.history.castles = self.history.castles.update(mve);
+        self.history.unmoved_rooks = self.history.unmoved_rooks.update(mve);
+        self.history.half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
+            self.history.half_move_clock.reset()
+        } else {
+            self.history.half_move_clock.incr()
+        };
+
+        // Install the move's resulting board and advance the side/ply.
+        self.board = mve.after;
+        self.color = self.color.opponent();
+        self.ply = self.ply.incr();
+
+        Undo {
+            prior_board,
+            prior_castles,
+            prior_unmoved_rooks,
+            prior_half_move_clock,
+            prior_last_move,
+            prior_position_hashes,
+        }
+    }
+
+    /// Reverses the most recent [`Self::make`], restoring the position
+    /// exactly to its prior state.
+    ///
+    /// `undo` must be the value returned by the matching `make` call; pairing
+    /// it with anything else (or calling out of order) produces an invalid
+    /// position.
+    pub fn unmake(&mut self, undo: Undo) {
+        self.ply = self.ply.decr();
+        self.color = self.color.opponent();
+        self.board = undo.prior_board;
+        self.history.castles = undo.prior_castles;
+        self.history.unmoved_rooks = undo.prior_unmoved_rooks;
+        self.history.half_move_clock = undo.prior_half_move_clock;
+        self.history.last_move = undo.prior_last_move;
+        self.history.position_hashes = undo.prior_position_hashes;
     }
 
     /// Returns a reference to the underlying [`Board`].
@@ -1416,6 +1509,31 @@ mod proptests {
             let before = p.clone();
             let _: Vec<Move> = p.valid_moves().collect();
             prop_assert_eq!(p, before);
+        }
+
+        // make + unmake restores the exact prior position.
+        #[test]
+        fn make_unmake_round_trip(p in random_position()) {
+            let before = p.clone();
+            let moves: Vec<Move> = p.valid_moves().collect();
+            for m in moves {
+                let mut q = before.clone();
+                let undo = q.make(&m);
+                q.unmake(undo);
+                prop_assert_eq!(&q, &before);
+            }
+        }
+
+        // make produces the same end state as the persistent `mve` for every legal move.
+        #[test]
+        fn make_matches_persistent_mve(p in random_position()) {
+            let moves: Vec<Move> = p.valid_moves().collect();
+            for m in moves {
+                let persistent = p.clone().mve(m.orig, m.dest, m.promotion).unwrap();
+                let mut mutable = p.clone();
+                mutable.make(&m);
+                prop_assert_eq!(&mutable, &persistent);
+            }
         }
     }
 }
