@@ -10,10 +10,11 @@
 //! ```
 //! use ruchess::game::Game;
 //! use ruchess::square;
+//! use ruchess::uci::Uci;
 //!
 //! // Play 1.e4 from the standard starting position.
 //! let game = Game::new();
-//! let after_e4 = game.mve(square::E2, square::E4).unwrap();
+//! let after_e4 = game.mve(&Uci { orig: square::E2, dest: square::E4, promotion: None }).unwrap();
 //! assert!(after_e4.position().board().is_occupied(square::E4));
 //! ```
 //!

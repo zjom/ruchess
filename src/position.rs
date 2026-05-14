@@ -33,7 +33,7 @@
 //! # use ruchess::square;
 //! # use ruchess::color::Color;
 //! let p = Position::new();
-//! let next = p.mve(square::E2, square::E4).unwrap();
+//! let next = p.mve(square::E2, square::E4, None).unwrap();
 //! assert_eq!(next.color(), Color::Black);
 //! assert!(next.board().is_occupied(square::E4));
 //! ```
@@ -201,13 +201,13 @@ impl Position {
     /// # use ruchess::square;
     /// # use ruchess::color::Color;
     /// let p = Position::new();
-    /// let next = p.mve(square::E2, square::E4).unwrap();
+    /// let next = p.mve(square::E2, square::E4, None).unwrap();
     /// assert_eq!(next.color(), Color::Black);
     /// assert!(next.board().is_occupied(square::E4));
     /// assert!(!next.board().is_occupied(square::E2));
     ///
     /// // Illegal move → None.
-    /// assert!(Position::new().mve(square::E2, square::E5).is_none());
+    /// assert!(Position::new().mve(square::E2, square::E5, None).is_none());
     /// ```
     pub fn mve(
         self,
@@ -1281,7 +1281,7 @@ mod proptests {
         #[test]
         fn mve_with_listed_move_works(p in random_position()) {
             if let Some(m) = p.valid_moves().next() {
-                let next = p.clone().mve(m.orig, m.dest,None).expect("listed move must succeed");
+                let next = p.clone().mve(m.orig, m.dest, m.promotion).expect("listed move must succeed");
                 prop_assert_eq!(next.color(), p.color().opponent());
                 if m.promotion.is_none() {
                     prop_assert_eq!(*next.board(), m.after);

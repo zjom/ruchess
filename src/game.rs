@@ -13,10 +13,11 @@
 //! ```
 //! # use ruchess::game::Game;
 //! # use ruchess::square;
+//! # use ruchess::uci::Uci;
 //! let game = Game::new();
 //! assert!(game.outcome().is_none());
 //!
-//! let after_e4 = game.mve(square::E2, square::E4).unwrap();
+//! let after_e4 = game.mve(&Uci{orig: square::E2, dest: square::E4, promotion: None}).unwrap();
 //! assert!(after_e4.position().board().is_occupied(square::E4));
 //! ```
 
@@ -71,11 +72,14 @@ impl Game {
     /// ```
     /// # use ruchess::game::Game;
     /// # use ruchess::square;
-    /// let g = Game::new().mve(square::E2, square::E4).unwrap();
+    /// # use ruchess::uci::Uci;
+    /// let m = Uci{orig: square::E2, dest: square::E4, promotion: None};
+    /// let g = Game::new().mve(&m).unwrap();
     /// assert!(g.position().board().is_occupied(square::E4));
     ///
     /// // Illegal move → None.
-    /// assert!(Game::new().mve(square::E2, square::E5).is_none());
+    /// let illegal = Uci{orig: square::E2, dest: square::E5, promotion: None};
+    /// assert!(Game::new().mve(&illegal).is_none());
     /// ```
     pub fn mve(self, uci: &Uci) -> Option<Self> {
         self.position
