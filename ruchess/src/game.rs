@@ -27,23 +27,7 @@ impl Game {
 
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         self.position.mve(orig, dest).map(|position| {
-            let has_moves = position.has_moves();
-
-            let outcome = if is_insufficient_material(position.board()) {
-                Some(Outcome::Draw(DrawReason::InsufficientMaterial))
-            } else if position.history().is_threefold_repetition() {
-                Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
-            } else if position.history().half_moves() >= 50 {
-                Some(Outcome::Draw(DrawReason::FiftyMoveRule))
-            } else if !has_moves && position.is_check() {
-                let winner = position.color().opponent();
-                Some(Outcome::Win(winner))
-            } else if !has_moves {
-                Some(Outcome::Draw(DrawReason::Stalemate))
-            } else {
-                None
-            };
-
+            let outcome = eval(&position);
             Self {
                 position,
                 turn: self.turn.incr(),
@@ -62,6 +46,25 @@ impl Game {
 
     pub fn ply(&self) -> Ply {
         self.turn
+    }
+}
+
+fn eval(position: &Position) -> Option<Outcome> {
+    let has_moves = position.has_moves();
+
+    if is_insufficient_material(position.board()) {
+        Some(Outcome::Draw(DrawReason::InsufficientMaterial))
+    } else if position.history().is_threefold_repetition() {
+        Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
+    } else if position.history().half_moves() >= 50 {
+        Some(Outcome::Draw(DrawReason::FiftyMoveRule))
+    } else if !has_moves && position.is_check() {
+        let winner = position.color().opponent();
+        Some(Outcome::Win(winner))
+    } else if !has_moves {
+        Some(Outcome::Draw(DrawReason::Stalemate))
+    } else {
+        None
     }
 }
 fn is_insufficient_material(board: &Board) -> bool {
