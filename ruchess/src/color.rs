@@ -1,16 +1,49 @@
+//! # Colors and Color-Indexed Containers
+//!
+//! This module provides the [`Color`] enum to represent the two sides in a chess game
+//! (White and Black), along with the [`ByColor`] container for storing data associated
+//! with each side.
+//!
+//! ### Key Features
+//! * **Perspective-Aware Ranks:** Easily get the back rank, second rank, etc., for a specific color.
+//! * **Castling Support:** Quickly find the home square of a rook based on color and side.
+//! * **Utility Containers:** [`ByColor<T>`] provides a type-safe way to store side-specific data
+//!   (like bitboards, scores, or king positions).
+//!
+//! ---
+//!
+//! ## Example: Basic Color Operations
+//! ```
+//! # use ruchess::color::Color;
+//! let side = Color::White;
+//! assert_eq!(side.opponent(), Color::Black);
+//! assert_eq!(side.back_rank(), ruchess::square::Rank::First);
+//! ```
+
 use std::fmt::Display;
 
 use crate::side::Side;
 use crate::square::Rank;
 use crate::square::{self, Square};
 
+/// Represents one of the two players in a chess game.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Color {
+    /// The player who moves first.
     White,
+    /// The player who moves second.
     Black,
 }
 
 impl Color {
+    /// Returns the opposite color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// assert_eq!(Color::White.opponent(), Color::Black);
+    /// assert_eq!(Color::Black.opponent(), Color::White);
+    /// ```
     pub fn opponent(self) -> Color {
         match self {
             Self::White => Self::Black,
@@ -19,6 +52,15 @@ impl Color {
     }
 
     /// The rook's home square for this color and castling side.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// # use ruchess::side::Side;
+    /// # use ruchess::square;
+    /// assert_eq!(Color::White.castle_square(Side::King), square::H1);
+    /// assert_eq!(Color::Black.castle_square(Side::Queen), square::A8);
+    /// ```
     pub fn castle_square(self, side: Side) -> Square {
         match (self, side) {
             (Color::White, Side::King) => square::H1,
@@ -28,12 +70,31 @@ impl Color {
         }
     }
 
+    /// Returns the back rank (where major pieces start) for this color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square::Rank;
+    /// assert_eq!(Color::White.back_rank(), Rank::First);
+    /// assert_eq!(Color::Black.back_rank(), Rank::Eighth);
+    /// ```
     pub fn back_rank(self) -> Rank {
         match self {
             Self::White => Rank::First,
             Self::Black => Rank::Eighth,
         }
     }
+
+    /// Returns the second rank (where pawns start) for this color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square::Rank;
+    /// assert_eq!(Color::White.second_rank(), Rank::Second);
+    /// assert_eq!(Color::Black.second_rank(), Rank::Seventh);
+    /// ```
     pub fn second_rank(self) -> Rank {
         match self {
             Self::White => Rank::Second,
@@ -41,30 +102,80 @@ impl Color {
         }
     }
 
+    /// Returns the fourth rank relative to this color's perspective.
+    ///
+    /// This is the rank pawns reach after a double-step from their starting position.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square::Rank;
+    /// assert_eq!(Color::White.fourth_rank(), Rank::Fourth);
+    /// assert_eq!(Color::Black.fourth_rank(), Rank::Fifth);
+    /// ```
     pub fn fourth_rank(self) -> Rank {
         match self {
             Self::White => Rank::Fourth,
             Self::Black => Rank::Fifth,
         }
     }
+
+    /// Returns the seventh rank (the rank before promotion) for this color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square::Rank;
+    /// assert_eq!(Color::White.seventh_rank(), Rank::Seventh);
+    /// assert_eq!(Color::Black.seventh_rank(), Rank::Second);
+    /// ```
     pub fn seventh_rank(self) -> Rank {
         match self {
             Self::White => Rank::Seventh,
             Self::Black => Rank::Second,
         }
     }
+
+    /// Returns the singular name of the color as a lowercase string.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::White => "white",
+            Self::Black => "black",
+        }
+    }
 }
 
+/// A container that stores a value of type `T` for each [`Color`].
 #[derive(Debug, Clone, Copy)]
 pub struct ByColor<T> {
+    /// The value associated with [`Color::White`].
     pub white: T,
+    /// The value associated with [`Color::Black`].
     pub black: T,
 }
 
 impl<T> ByColor<T> {
+    /// Creates a new `ByColor` container with the given values.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::ByColor;
+    /// let container = ByColor::new(10, 20);
+    /// assert_eq!(container.white, 10);
+    /// assert_eq!(container.black, 20);
+    /// ```
     pub fn new(white: T, black: T) -> Self {
         Self { white, black }
     }
+
+    /// Returns a reference to the value associated with the given [`Color`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::{ByColor, Color};
+    /// let container = ByColor::new("W", "B");
+    /// assert_eq!(*container.get(Color::White), "W");
+    /// ```
     pub fn get(&self, c: Color) -> &T {
         match c {
             Color::White => &self.white,
@@ -72,6 +183,14 @@ impl<T> ByColor<T> {
         }
     }
 
+    /// Sets the value for the given [`Color`] and returns the updated container.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::{ByColor, Color};
+    /// let container = ByColor::new(0, 0).set(Color::White, 5);
+    /// assert_eq!(container.white, 5);
+    /// ```
     #[must_use]
     pub fn set(self, c: Color, value: T) -> Self {
         match c {
@@ -86,6 +205,14 @@ impl<T> ByColor<T> {
         }
     }
 
+    /// Updates the value for the given [`Color`] using a function and returns the updated container.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::{ByColor, Color};
+    /// let container = ByColor::new(10, 20).update(Color::Black, |v| v + 5);
+    /// assert_eq!(container.black, 25);
+    /// ```
     #[must_use]
     pub fn update<F>(self, c: Color, f: F) -> Self
     where
@@ -200,9 +327,6 @@ impl<T> ByColor<T> {
 
 impl Display for Color {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::White => writeln!(f, "white"),
-            Self::Black => writeln!(f, "black"),
-        }
+        f.write_str(self.as_str())
     }
 }
