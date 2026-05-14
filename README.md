@@ -4,6 +4,10 @@ rust chess
 
 [docs](https://docs.rs/ruchess)
 
+i only support standard chess. it is unlikely i will support other variants.
+
+probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want more features
+
 ## features
 
 - highly compact bitboard representations
@@ -46,21 +50,15 @@ let after_e4 = game.mve(square::E2, square::E4).unwrap();
 assert!(after_e4.position().board().is_occupied(square::E4));
 ```
 
-see [docs](https://docs.rs/ruchess) for more library/module details
+see: [docs](https://docs.rs/ruchess) for more details
 
-see [examples](https://github.com/zjom/ruchess/tree/main/examples) or [ruchess tui](https://github.com/zjom/ruchess/tree/main/tui) for example applications
-
-## why
-
-i like chess
-
-i currently only support standard chess. it is unlikely i will support other variants.
-
-probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want more features
+see: [examples](https://github.com/zjom/ruchess/tree/main/examples) or [ruchess tui](https://github.com/zjom/ruchess/tree/main/tui) for example applications
 
 ## dependencies
 
-- [lazy_static](https://docs.rs/lazy_static/latest/lazy_static/)
+just [lazy_static](https://docs.rs/lazy_static/latest/lazy_static/)
+
+i could probably get rid of it with some refactoring but i am lazy
 
 ## roadmap
 
