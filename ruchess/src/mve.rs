@@ -7,7 +7,7 @@ use crate::{
     square::Square,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Move {
     pub piece: Piece,
     pub orig: Square,
