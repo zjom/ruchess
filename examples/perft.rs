@@ -71,8 +71,8 @@ fn main() {
     let only = only.map(|s| s.to_string());
 
     println!(
-        "{:<10} {:>6} {:>15} {:>12} {:>12} {}",
-        "position", "depth", "nodes", "ms", "Mn/s", "ok"
+        "{:<10} {:>6} {:>15} {:>12} {:>12} ok",
+        "position", "depth", "nodes", "ms", "Mn/s"
     );
     println!("{}", "-".repeat(72));
 
@@ -81,10 +81,10 @@ fn main() {
     let mut mismatches: Vec<(String, u32, u64, u64)> = Vec::new();
 
     for (name, fen_str, expected) in POSITIONS {
-        if let Some(o) = &only {
-            if o != name {
-                continue;
-            }
+        if let Some(o) = &only
+            && o != name
+        {
+            continue;
         }
         let pos = fen::parse(fen_str).expect("FEN should parse");
         let depths = expected.len() as u32;
