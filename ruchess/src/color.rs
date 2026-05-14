@@ -5,9 +5,9 @@
 //! with each side.
 //!
 //! ### Key Features
-//! * **Perspective-Aware Ranks:** Easily get the back rank, second rank, etc., for a specific color.
-//! * **Castling Support:** Quickly find the home square of a rook based on color and side.
-//! * **Utility Containers:** [`ByColor<T>`] provides a type-safe way to store side-specific data
+//! - **Perspective-Aware Ranks:** Easily get the back rank, second rank, etc., for a specific color.
+//! - **Castling Support:** Quickly find the home square of a rook based on color and side.
+//! - **Utility Containers:** [`ByColor<T>`] provides a type-safe way to store side-specific data
 //!   (like bitboards, scores, or king positions).
 //!
 //! ---

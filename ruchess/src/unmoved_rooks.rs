@@ -22,8 +22,8 @@
 //! occurs, the bits corresponding to both the **origin** and **destination**
 //! squares are cleared.
 //!
-//! * **Origin:** If a rook moves, it is no longer "unmoved".
-//! * **Destination:** If an unmoved rook is captured, it is removed from the board,
+//! - **Origin:** If a rook moves, it is no longer "unmoved".
+//! - **Destination:** If an unmoved rook is captured, it is removed from the board,
 //!   and thus can no longer be used for castling.
 //!
 //! ## Example

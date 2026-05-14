@@ -8,10 +8,10 @@
 //!
 //! ### Internal Representation
 //!
-//! * **H1**: White King-side (O-O)
-//! * **A1**: White Queen-side (O-O-O)
-//! * **H8**: Black King-side (o-o)
-//! * **A8**: Black Queen-side (o-o-o)
+//! - **H1**: White King-side (O-O)
+//! - **A1**: White Queen-side (O-O-O)
+//! - **H8**: Black King-side (o-o)
+//! - **A8**: Black Queen-side (o-o-o)
 //!
 //! This representation allows for efficient updates and queries using bitwise operations.
 //!

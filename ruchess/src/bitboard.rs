@@ -18,9 +18,9 @@
 //!
 //! `ruchess` employs the **Little-Endian Rank-File (LERF)** mapping convention.
 //! In this system:
-//! * **Bit 0** (LSB) represents **A1**.
-//! * **Bit 63** (MSB) represents **H8**.
-//! * Bits progress **File-wise** (A to H) and then **Rank-wise** (1 to 8).
+//! - **Bit 0** (LSB) represents **A1**.
+//! - **Bit 63** (MSB) represents **H8**.
+//! - Bits progress **File-wise** (A to H) and then **Rank-wise** (1 to 8).
 //!
 //! ### Mapping Table
 //!
