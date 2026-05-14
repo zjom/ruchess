@@ -1,8 +1,11 @@
 # ruchess
 
-a rust chess library
+rust chess
 
-## at a glance
+[docs](https://docs.rs/ruchess)
+
+
+## quickstart
 
 ```sh
 cargo add ruchess
@@ -12,11 +15,9 @@ or in your `cargo.toml`
 
 ```toml
 [dependencies]
-ruchess = "0.0.1"
+ruchess = "0.0.3"
 ```
 
-
-### usage
 
 ```rust
 use ruchess::game::Game;
@@ -27,23 +28,15 @@ let game = Game::new();
 let after_e4 = game.mve(square::E2, square::E4).unwrap();
 assert!(after_e4.position().board().is_occupied(square::E4));
 ```
-                                                                                
 
-## module map
-                                                                                
-- [`bitboard`] — 64-bit board representation and bitwise operations.
-- [`square`], [`rank`], [`file`] — coordinate primitives.
-- [`color`], [`role`], [`piece`], [`side`] — piece and side identifiers.
-- [`board`] — piece placement, attack detection, and queries.
-- [`attacks`], [`magic`] — precomputed attack tables and magic bitboards.
-- [`mve`], [`uci`] — move representation and UCI parsing.
-- [`castles`], [`unmoved_rooks`] — castling rights and rook tracking.
-- [`halfmoveclock`], [`ply`] — clocks for the fifty-move rule and side to move.
-- [`hash`] — Zobrist hashing and repetition trails.
-- [`history`] — per-position history (last move, castles, clock, hashes).
-- [`position`] — a complete game state with legal-move generation.
-- [`outcome`] — terminal results (win, draw, draw reason).
-- [`game`] — high-level wrapper that tracks turns and outcomes.
+see [docs](https://docs.rs/ruchess) for more library/module details
+
+see [examples](https://github.com/zjom/ruchess/tree/main/examples) or [ruchess tui](https://github.com/zjom/ruchess/tree/main/tui) for example applications
+
+
+## why
+
+i like chess
 
 
 ## dependencies
