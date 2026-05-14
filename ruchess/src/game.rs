@@ -9,7 +9,7 @@ use crate::{
     square::Square,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Game {
     position: Position,
     turn: Ply,
