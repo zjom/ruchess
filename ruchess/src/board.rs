@@ -1,3 +1,70 @@
+//! # Board
+//!
+//! The [`Board`] struct is the central coordinator for piece placement and attack detection.
+//! While [`Bitboard`] handles the low-level bit manipulation, [`Board`] organizes these
+//! bitboards into a coherent representation of a chess position.
+//!
+//! ## Representation
+//!
+//! Internally, a [`Board`] maintains several redundant [`Bitboard`] structures to optimize different
+//! types of queries:
+//! * **Role Bitboards:** Six bitboards (one for each [`Role`]: Pawn, Knight, Bishop, Rook, Queen, and King)
+//!   stored in [`ByRole`].
+//! * **Color Bitboards:** Two bitboards (one for each [`Color`]: White and Black) stored in [`ByColor`].
+//! * **Occupied Bitboard:** A single bitboard representing the union of all pieces, used for
+//!   fast collision detection and move generation.
+//!
+//! This design allows for $O(1)$ lookup of pieces by color or role, and extremely fast
+//! calculations for complex chess logic like "find all pieces attacking the king".
+//!
+//! ---
+//!
+//! ## Movement and Captures
+//!
+//! The [`Board`] is designed to be persistent and functional. Methods like [`Board::mve`]
+//! and [`Board::capture`] return a new, updated [`Board`] instead of mutating the current one.
+//!
+//! ### Example: Simple Move
+//! ```
+//! # use ruchess::board::Board;
+//! # use ruchess::square;
+//! let board = Board::new(); // Starting position
+//!
+//! // Move the E2 pawn to E4
+//! if let Some(new_board) = board.mve(square::E2, square::E4) {
+//!     assert!(new_board.is_occupied(square::E4));
+//!     assert!(!new_board.is_occupied(square::E2));
+//! }
+//! ```
+//!
+//! ---
+//!
+//! ## Attack Detection
+//!
+//! A core responsibility of the [`Board`] is to track which squares are under attack. This is
+//! essential for determining the legality of moves (e.g., you cannot move into check) and
+//! for move generation.
+//!
+//! ```
+//! # use ruchess::board::Board;
+//! # use ruchess::color::Color;
+//! # use ruchess::square;
+//! let board = Board::new();
+//!
+//! // In the starting position, E2 is attacked by several White pieces.
+//! // We can check if Black is attacking E2:
+//! let is_attacked_by_black = board.is_attacked(square::E2, Color::White);
+//! assert!(!is_attacked_by_black);
+//! ```
+//!
+//! ## Invariants
+//!
+//! Every [`Board`] must maintain the following internal invariants:
+//! * **Disjoint Roles:** No single square can be marked in more than one role bitboard.
+//! * **Disjoint Colors:** No square can be both White and Black.
+//! * **Occupancy Parity:** The `occupied` bitboard must exactly match the union of all role bitboards
+//!   and also the union of both color bitboards.
+
 use std::fmt::Display;
 
 use crate::{
