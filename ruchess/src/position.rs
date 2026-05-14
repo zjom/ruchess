@@ -119,10 +119,9 @@ impl Position {
         });
         let captures = pawns
             .flat_map(|from| {
-                (ATTACKS.pawn_attacks(self.color, from)
-                    & self.board.bycolor(self.color.opponent()))
-                .into_iter()
-                .map(move |to| (from, to))
+                (ATTACKS.pawn_attacks(self.color, from) & self.board.bycolor(self.color.opponent()))
+                    .into_iter()
+                    .map(move |to| (from, to))
             })
             .flat_map(|(from, to)| self.gen_pawn_moves(from, to, true));
 
