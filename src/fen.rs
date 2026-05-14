@@ -78,10 +78,10 @@ pub fn parse(s: &str) -> Result<Position, ParseFenError> {
     let castles = parse_castles(castles_s)?;
     let last_move = parse_enpassant(ep_s, color)?;
     let half_move_clock = parse_halfmove(halfmove_s)?;
-    let full_moves: u32 = fullmove_s
+    let ply = fullmove_s
         .parse()
-        .map_err(|_| ParseFenError::InvalidFullmoveNumber)?;
-    let ply = Ply::from_full_moves(full_moves, color);
+        .map_err(|_| ParseFenError::InvalidFullmoveNumber)
+        .map(|full_moves| Ply::from_full_moves(full_moves, color))?;
 
     let history = History {
         last_move,
