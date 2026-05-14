@@ -33,12 +33,14 @@
 //! - [`position`] — a complete game state with legal-move generation.
 //! - [`outcome`] — terminal results (win, draw, draw reason).
 //! - [`game`] — high-level wrapper that tracks turns and outcomes.
+//! - [`fen`] — fen parser.
 
 pub mod attacks;
 pub mod bitboard;
 pub mod board;
 pub mod castles;
 pub mod color;
+pub mod fen;
 pub mod file;
 pub mod game;
 pub mod halfmoveclock;
