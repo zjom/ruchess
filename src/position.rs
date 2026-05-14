@@ -51,6 +51,7 @@ use crate::{
     history::History,
     mve::Move,
     piece::Piece,
+    ply::Ply,
     role::{PromotableRole, Role},
     side::Side,
     square::{self, Square},
@@ -65,6 +66,7 @@ pub struct Position {
     board: Board,
     history: History,
     color: Color,
+    ply: Ply,
 }
 
 impl Position {
@@ -85,6 +87,7 @@ impl Position {
             board: Board::new(),
             history: History::new(),
             color: Color::White,
+            ply: Ply::new(),
         }
     }
 
@@ -163,6 +166,20 @@ impl Position {
         }
     }
 
+    /// Returns a new position with the ply, leaving the
+    /// rest of [`Position`] unchanged.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::ply::Ply;
+    /// let p = Position::new().with_ply(Ply::new());
+    /// assert_eq!(p.ply().full_move_number(), 1);
+    /// ```
+    pub fn with_ply(self, ply: Ply) -> Self {
+        Self { ply, ..self }
+    }
+
     /// Returns a new position with `f` applied to the current [`History`].
     ///
     /// `f` receives a reference and returns a fresh value; this is a thin
@@ -224,6 +241,7 @@ impl Position {
             board: mve.after,
             history,
             color: self.color.opponent(),
+            ply: self.ply.incr(),
         })
     }
 
@@ -264,6 +282,11 @@ impl Position {
     /// ```
     pub fn history(&self) -> &History {
         &self.history
+    }
+
+    /// Returns the current ply (number of half-moves played).
+    pub fn ply(&self) -> Ply {
+        self.ply
     }
 
     /// Returns `true` if the side to move is in check.

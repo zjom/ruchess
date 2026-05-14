@@ -28,7 +28,6 @@ use crate::{
     board::Board,
     color::Color,
     outcome::{DrawReason, Outcome},
-    ply::Ply,
     position::Position,
     uci::Uci,
 };
@@ -38,7 +37,6 @@ use crate::{
 #[derive(Debug, Default, Clone)]
 pub struct Game {
     position: Position,
-    turn: Ply,
     outcome: Option<Outcome>,
 }
 
@@ -57,7 +55,6 @@ impl Game {
     pub fn new() -> Self {
         Self {
             position: Position::new(),
-            turn: Ply::new(),
             outcome: None,
         }
     }
@@ -86,11 +83,7 @@ impl Game {
             .mve(uci.orig, uci.dest, uci.promotion)
             .map(|position| {
                 let outcome = eval(&position);
-                Self {
-                    position,
-                    turn: self.turn.incr(),
-                    outcome,
-                }
+                Self { position, outcome }
             })
     }
 
@@ -107,11 +100,6 @@ impl Game {
     /// Returns the current position.
     pub fn position(&self) -> &Position {
         &self.position
-    }
-
-    /// Returns the current ply (number of half-moves played).
-    pub fn ply(&self) -> Ply {
-        self.turn
     }
 }
 
@@ -174,8 +162,8 @@ impl Display for Game {
             None => write!(
                 f,
                 "{:?} to move (move {})",
-                self.turn.turn(),
-                self.turn.full_move_number()
+                self.position.ply().turn(),
+                self.position.ply().full_move_number()
             ),
         }
     }
