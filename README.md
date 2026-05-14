@@ -7,6 +7,12 @@ rust chess
 
 ## quickstart
 
+> [!CAUTION]
+> this is library is still at version 0.0.X
+> it is very likely that there will be breaking api changes until version 0.1.0 release
+> if you use this library, make sure you pin the version in cargo.toml
+
+
 ```sh
 cargo add ruchess
 ```
