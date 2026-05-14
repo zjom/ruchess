@@ -86,6 +86,15 @@ pub struct Board {
 
 impl Board {
     /// Creates a new [`Board`] with the standard starting position.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// assert!(board.is_occupied(square::A1)); // White Rook
+    /// assert!(board.is_occupied(square::E2)); // White Pawn
+    /// ```
     pub fn new() -> Self {
         Self {
             by_role: ByRole {
@@ -124,6 +133,19 @@ impl Board {
     /// Moves a piece from `orig` to `dest`.
     ///
     /// Returns `None` if `dest` is occupied or if there is no piece at `orig`.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// let next = board.mve(square::E2, square::E4).unwrap();
+    /// assert!(next.is_occupied(square::E4));
+    /// assert!(!next.is_occupied(square::E2));
+    ///
+    /// // Cannot move to occupied square
+    /// assert!(board.mve(square::E1, square::E2).is_none());
+    /// ```
     #[must_use]
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         if self.is_occupied(dest) {
@@ -139,6 +161,22 @@ impl Board {
     ///
     /// If `capture` is `Some(sq)`, the piece at `sq` is removed (e.g. for en passant).
     /// Returns `None` if there is no piece at `orig`.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// # use ruchess::piece::Piece;
+    /// # use ruchess::role::Role;
+    /// # use ruchess::color::Color;
+    /// let board = Board::EMPTY.set(square::E2, Piece { role: Role::Pawn, color: Color::White })
+    ///                         .set(square::F3, Piece { role: Role::Knight, color: Color::Black });
+    ///
+    /// let next = board.capture(square::E2, square::F3, None).unwrap();
+    /// assert!(next.is_occupied(square::F3));
+    /// assert!(!next.is_occupied(square::E2));
+    /// assert_eq!(next.piece_at(square::F3).unwrap().color, Color::White);
+    /// ```
     #[must_use]
     pub fn capture(self, orig: Square, dest: Square, capture: Option<Square>) -> Option<Self> {
         let (board, Some(piece)) = self.pop(orig) else {
@@ -156,6 +194,18 @@ impl Board {
     /// Returns a new [`Board`] with the [`Square`] `sq` set to `p`.
     ///
     /// Overwrites any existing piece.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// # use ruchess::piece::Piece;
+    /// # use ruchess::role::Role;
+    /// # use ruchess::color::Color;
+    /// let piece = Piece { role: Role::Rook, color: Color::White };
+    /// let board = Board::EMPTY.set(square::A1, piece);
+    /// assert_eq!(board.piece_at(square::A1), Some(piece));
+    /// ```
     #[must_use]
     pub fn set(self, sq: Square, p: Piece) -> Self {
         let (board, _) = self.pop(sq);
@@ -167,6 +217,16 @@ impl Board {
     }
 
     /// Returns a new [`Board`] with piece at `sq` removed, returning it if any.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// let (next, piece) = board.pop(square::A1);
+    /// assert!(piece.is_some());
+    /// assert!(!next.is_occupied(square::A1));
+    /// ```
     #[must_use]
     pub fn pop(self, sq: Square) -> (Self, Option<Piece>) {
         if !self.is_occupied(sq) {
@@ -184,47 +244,132 @@ impl Board {
     }
 
     /// Checks whether the [`Square`] `sq` is occupied.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// assert!(board.is_occupied(square::A1));
+    /// assert!(!board.is_occupied(square::E4));
+    /// ```
     pub fn is_occupied(&self, sq: Square) -> bool {
         self.occupied.is_set(sq)
     }
 
     /// Returns a [`Bitboard`] containing all occupied squares.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.occupied().0.count_ones(), 32);
+    /// ```
     pub fn occupied(&self) -> Bitboard {
         self.occupied
     }
 
     /// Returns the [`Piece`] at [`Square`] `sq` if any.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// # use ruchess::role::Role;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// let piece = board.piece_at(square::A1).unwrap();
+    /// assert_eq!(piece.role, Role::Rook);
+    /// assert_eq!(piece.color, Color::White);
+    /// ```
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         self.color_at(sq)
             .and_then(|c| self.role_at(sq).map(|r| Piece { role: r, color: c }))
     }
 
     /// Returns the [`Role`] at [`Square`] `sq` if any.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// # use ruchess::role::Role;
+    /// let board = Board::new();
+    /// assert_eq!(board.role_at(square::E1), Some(Role::King));
+    /// ```
     pub fn role_at(&self, sq: Square) -> Option<Role> {
         self.by_role.find(|bb| bb.is_set(sq)).map(|(p, _)| p)
     }
 
     /// Returns the [`Color`] at [`Square`] `sq` if any.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// assert_eq!(board.color_at(square::A1), Some(Color::White));
+    /// assert_eq!(board.color_at(square::A8), Some(Color::Black));
+    /// ```
     pub fn color_at(&self, sq: Square) -> Option<Color> {
         self.by_color.find(|bb| bb.is_set(sq)).map(|(c, _)| c)
     }
 
     /// Checks whether the [`Piece`] `p` exists on the board.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::piece::Piece;
+    /// # use ruchess::role::Role;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// let white_king = Piece { role: Role::King, color: Color::White };
+    /// assert!(board.has_piece(white_king));
+    /// ```
     pub fn has_piece(&self, p: Piece) -> bool {
         self.bypiece(p).is_non_empty()
     }
 
     /// Checks whether [`Color`] `c`'s king is in check.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// assert!(!board.is_check(Color::White));
+    /// ```
     pub fn is_check(&self, c: Color) -> bool {
         self.attackers(self.king(c), c.opponent()).is_non_empty()
     }
 
     /// Checks whether the [`Square`] `sq` belonging to [`Color`] `c` is being attacked by [`Color::opponent`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// assert!(!board.is_attacked(square::E2, Color::White));
+    /// ```
     pub fn is_attacked(&self, sq: Square, c: Color) -> bool {
         self.attackers(sq, c.opponent()).is_non_empty()
     }
 
     /// Returns a [`Bitboard`] of all `attacker`-colored pieces that have `sq` in their attack range.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// let attackers = board.attackers(square::E3, Color::White);
+    /// assert!(attackers.is_non_empty()); // E2 pawn, etc.
+    /// ```
     pub fn attackers(&self, sq: Square, attacker: Color) -> Bitboard {
         self.bycolor(attacker)
             & (ATTACKS.rook_attacks(sq, self.occupied)
@@ -237,26 +382,61 @@ impl Board {
     }
 
     /// Returns a [`Bitboard`] of all pawns.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.pawns().0.count_ones(), 16);
+    /// ```
     pub fn pawns(&self) -> Bitboard {
         self.byrole(Role::Pawn)
     }
 
     /// Returns a [`Bitboard`] of all rooks.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.rooks().0.count_ones(), 4);
+    /// ```
     pub fn rooks(&self) -> Bitboard {
         self.byrole(Role::Rook)
     }
 
     /// Returns a [`Bitboard`] of all knights.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.knights().0.count_ones(), 4);
+    /// ```
     pub fn knights(&self) -> Bitboard {
         self.byrole(Role::Knight)
     }
 
     /// Returns a [`Bitboard`] of all bishops.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.bishops().0.count_ones(), 4);
+    /// ```
     pub fn bishops(&self) -> Bitboard {
         self.byrole(Role::Bishop)
     }
 
     /// Returns a [`Bitboard`] of all queens.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.queens().0.count_ones(), 2);
+    /// ```
     pub fn queens(&self) -> Bitboard {
         self.byrole(Role::Queen)
     }
@@ -266,6 +446,15 @@ impl Board {
     /// # Panics
     ///
     /// Panics if there is not exactly one king of that color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::color::Color;
+    /// # use ruchess::square;
+    /// let board = Board::new();
+    /// assert_eq!(board.king(Color::White), square::E1);
+    /// ```
     pub fn king(&self, c: Color) -> Square {
         self.bypiece(Piece {
             role: Role::King,
@@ -276,21 +465,54 @@ impl Board {
     }
 
     /// Returns a [`Bitboard`] of all white pieces.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.white().0.count_ones(), 16);
+    /// ```
     pub fn white(&self) -> Bitboard {
         self.bycolor(Color::White)
     }
 
     /// Returns a [`Bitboard`] of all black pieces.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// let board = Board::new();
+    /// assert_eq!(board.black().0.count_ones(), 16);
+    /// ```
     pub fn black(&self) -> Bitboard {
         self.bycolor(Color::Black)
     }
 
     /// Returns a [`Bitboard`] of all pieces of the given [`Piece`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::piece::Piece;
+    /// # use ruchess::role::Role;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// let white_pawn = Piece { role: Role::Pawn, color: Color::White };
+    /// assert_eq!(board.bypiece(white_pawn).0.count_ones(), 8);
+    /// ```
     pub fn bypiece(&self, Piece { role, color }: Piece) -> Bitboard {
         self.byrole(role) & self.bycolor(color)
     }
 
     /// Returns a [`Bitboard`] of all pieces of the given [`Color`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::color::Color;
+    /// let board = Board::new();
+    /// assert_eq!(board.bycolor(Color::White).0.count_ones(), 16);
+    /// ```
     pub fn bycolor(&self, c: Color) -> Bitboard {
         *self.by_color.get(c)
     }
@@ -300,6 +522,15 @@ impl Board {
     }
 
     /// Converts the board into an 8x8 grid of `Option<Piece>`.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::board::Board;
+    /// # use ruchess::role::Role;
+    /// let board = Board::new();
+    /// let grid = board.into_grid();
+    /// assert_eq!(grid[0][0].unwrap().role, Role::Rook);
+    /// ```
     pub fn into_grid(&self) -> [[Option<Piece>; 8]; 8] {
         let mut grid = [[None; 8]; 8];
 
