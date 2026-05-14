@@ -1,3 +1,47 @@
+//! # Position
+//!
+//! A [`Position`] is a complete chess game state: the [`Board`] of pieces,
+//! the [`History`] (last move, castling rights, half-move clock, repetition
+//! hashes), and the [`Color`] to move.
+//!
+//! Like [`Board`], [`Position`] is persistent and functional — builders and
+//! [`Position::mve`] return new values rather than mutating in place.
+//!
+//! ## Building a position
+//!
+//! [`Position::new`] returns the standard starting position. Layer builders
+//! to override pieces, side to move, or history:
+//!
+//! ```
+//! # use ruchess::position::Position;
+//! # use ruchess::color::Color;
+//! let standard = Position::new();
+//! assert_eq!(standard.color(), Color::White);
+//! assert_eq!(standard.valid_moves().count(), 20);
+//!
+//! let black_to_move = Position::new().with_color(Color::Black);
+//! assert_eq!(black_to_move.color(), Color::Black);
+//! ```
+//!
+//! ## Generating moves
+//!
+//! [`Position::valid_moves`] enumerates every legal move; [`Position::mve`]
+//! plays one and returns the resulting position:
+//!
+//! ```
+//! # use ruchess::position::Position;
+//! # use ruchess::square;
+//! # use ruchess::color::Color;
+//! let p = Position::new();
+//! let next = p.mve(square::E2, square::E4).unwrap();
+//! assert_eq!(next.color(), Color::Black);
+//! assert!(next.board().is_occupied(square::E4));
+//! ```
+//!
+//! Each move type also has a dedicated iterator
+//! ([`Position::pawn_moves`], [`Position::knight_moves`], …) which together
+//! partition [`Position::valid_moves`].
+
 use crate::{
     attacks::ATTACKS,
     bitboard::Bitboard,
@@ -13,6 +57,9 @@ use crate::{
     uci::Uci,
 };
 
+/// A complete chess game state — board, history, and side to move.
+///
+/// See the [module documentation](self) for an overview.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     board: Board,
@@ -21,6 +68,18 @@ pub struct Position {
 }
 
 impl Position {
+    /// Returns the standard chess starting position: pieces in their initial
+    /// squares, all four castling rights, White to move, no en-passant target.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::color::Color;
+    /// let p = Position::new();
+    /// assert_eq!(p.color(), Color::White);
+    /// assert!(!p.is_check());
+    /// assert_eq!(p.valid_moves().count(), 20);
+    /// ```
     pub fn new() -> Self {
         Self {
             board: Board::new(),
@@ -29,27 +88,97 @@ impl Position {
         }
     }
 
+    /// Returns a new position with the given [`Board`], preserving the
+    /// existing color and history.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::board::Board;
+    /// # use ruchess::square;
+    /// let p = Position::new().with_board(Board::EMPTY);
+    /// assert!(!p.board().is_occupied(square::E1));
+    /// ```
     pub fn with_board(self, board: Board) -> Self {
         Self { board, ..self }
     }
 
+    /// Returns a new position with the given side to move.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::color::Color;
+    /// let p = Position::new().with_color(Color::Black);
+    /// assert_eq!(p.color(), Color::Black);
+    /// ```
     pub fn with_color(self, color: Color) -> Self {
         Self { color, ..self }
     }
 
+    /// Returns a new position with the opposite side to move.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::color::Color;
+    /// let p = Position::new();
+    /// assert_eq!(p.color(), Color::White);
+    /// let q = p.change_color();
+    /// assert_eq!(q.color(), Color::Black);
+    /// ```
     pub fn change_color(self) -> Self {
         let color = self.color;
         self.with_color(color.opponent())
     }
+
+    /// Returns a new position with the given [`History`], preserving board
+    /// and color.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::history::History;
+    /// let p = Position::new().with_history(History::new());
+    /// assert!(p.history().last_move.is_none());
+    /// ```
     pub fn with_history(self, history: History) -> Self {
         Self { history, ..self }
     }
+
+    /// Returns a new position with the given castling rights, leaving the
+    /// rest of [`History`] (last move, half-move clock, …) unchanged.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::castles::Castles;
+    /// let p = Position::new().with_castles(Castles::new(false, false, false, false));
+    /// assert!(p.history().castles.is_empty());
+    /// ```
     pub fn with_castles(self, castles: Castles) -> Self {
         Self {
             history: self.history.with_castles(castles),
             ..self
         }
     }
+
+    /// Returns a new position with `f` applied to the current [`History`].
+    ///
+    /// `f` receives a reference and returns a fresh value; this is a thin
+    /// adapter for functional updates that aren't covered by [`Self::with_castles`]
+    /// or [`Self::with_history`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::castles::Castles;
+    /// let p = Position::new().update_history(|h| {
+    ///     h.clone().with_castles(Castles::new(true, false, false, false))
+    /// });
+    /// assert!(p.history().castles.white_king_side());
+    /// assert!(!p.history().castles.white_queen_side());
+    /// ```
     pub fn update_history<F>(self, f: F) -> Self
     where
         F: FnOnce(&History) -> History,
@@ -60,6 +189,26 @@ impl Position {
         }
     }
 
+    /// Plays the move from `orig` to `dest`. Returns the resulting position,
+    /// or `None` if no legal move connects those squares.
+    ///
+    /// On success the side to move is flipped and the [`History`] is updated
+    /// (last move, castling rights, half-move clock, position hashes).
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::square;
+    /// # use ruchess::color::Color;
+    /// let p = Position::new();
+    /// let next = p.mve(square::E2, square::E4).unwrap();
+    /// assert_eq!(next.color(), Color::Black);
+    /// assert!(next.board().is_occupied(square::E4));
+    /// assert!(!next.board().is_occupied(square::E2));
+    ///
+    /// // Illegal move → None.
+    /// assert!(Position::new().mve(square::E2, square::E5).is_none());
+    /// ```
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         let mve = self
             .valid_moves()
@@ -73,28 +222,85 @@ impl Position {
         })
     }
 
+    /// Returns a reference to the underlying [`Board`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::square;
+    /// let p = Position::new();
+    /// assert!(p.board().is_occupied(square::E1));
+    /// ```
     pub fn board(&self) -> &Board {
         &self.board
     }
 
+    /// Returns the side to move.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::color::Color;
+    /// assert_eq!(Position::new().color(), Color::White);
+    /// ```
     pub fn color(&self) -> Color {
         self.color
     }
 
+    /// Returns a reference to the [`History`] — last move, castling rights,
+    /// unmoved rooks, half-move clock, and position-hash trail.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// let p = Position::new();
+    /// assert!(p.history().last_move.is_none());
+    /// assert!(p.history().castles.white_king_side());
+    /// ```
     pub fn history(&self) -> &History {
         &self.history
     }
 
+    /// Returns `true` if the side to move is in check.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// assert!(!Position::new().is_check());
+    /// ```
     pub fn is_check(&self) -> bool {
         self.board.is_check(self.color)
     }
 
+    /// Returns the en-passant target square if the previous move was a
+    /// two-square pawn push, otherwise `None`.
+    ///
+    /// The target is the square the pushing pawn passed *over* — the square
+    /// onto which a capturing pawn would land.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // No en-passant target before any move has been played.
+    /// assert_eq!(Position::new().enpassant_square(), None);
+    /// ```
     pub fn enpassant_square(&self) -> Option<Square> {
         self.history
             .last_move
             .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color))
     }
 
+    /// Iterates every legal move from this position across all piece types.
+    ///
+    /// The returned iterator is the disjoint chain of the per-piece-type
+    /// generators ([`Self::pawn_moves`], [`Self::enpassant_moves`],
+    /// [`Self::king_moves`], …) in a fixed order.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// assert_eq!(Position::new().valid_moves().count(), 20);
+    /// ```
     pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
         self.pawn_moves()
             .chain(self.enpassant_moves())
@@ -104,14 +310,43 @@ impl Position {
             .chain(self.rook_moves())
             .chain(self.queen_moves())
     }
+
+    /// Returns `true` if at least one legal move exists from this position.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// assert!(Position::new().has_moves());
+    /// ```
     pub fn has_moves(&self) -> bool {
         self.valid_moves().any(|_| true)
     }
 
+    /// Iterates all legal moves originating from `orig`.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::square;
+    /// // The E2 pawn has two pushes (one and two squares).
+    /// assert_eq!(Position::new().valid_moves_at(square::E2).count(), 2);
+    /// // The A1 rook is locked in by its own pieces.
+    /// assert_eq!(Position::new().valid_moves_at(square::A1).count(), 0);
+    /// ```
     pub fn valid_moves_at(&self, orig: Square) -> impl Iterator<Item = Move> {
         self.valid_moves().filter(move |m| m.orig == orig)
     }
 
+    /// Iterates all legal pawn moves: pushes, double pushes, captures, and
+    /// promotions. En-passant captures are emitted separately by
+    /// [`Self::enpassant_moves`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // 8 pawns × (single + double) = 16 from the starting position.
+    /// assert_eq!(Position::new().pawn_moves().count(), 16);
+    /// ```
     pub fn pawn_moves(&self) -> impl Iterator<Item = Move> {
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
@@ -156,6 +391,17 @@ impl Position {
         captures.chain(single_moves).chain(double_moves)
     }
 
+    /// Iterates en-passant captures available to the side to move.
+    ///
+    /// Returns an empty iterator unless the previous move was a two-square
+    /// pawn push that ended next to a friendly pawn.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // No en-passant on move 1 (no prior move to react to).
+    /// assert_eq!(Position::new().enpassant_moves().count(), 0);
+    /// ```
     pub fn enpassant_moves(&self) -> impl Iterator<Item = Move> {
         self.history
             .last_move
@@ -175,6 +421,19 @@ impl Position {
             .flatten()
     }
 
+    /// Iterates all legal king moves, including castling.
+    ///
+    /// Destinations attacked by the opponent are filtered out. The check is
+    /// performed against the board with our king temporarily removed, so a
+    /// king cannot slide along an attacker's ray onto a "safe-looking" square
+    /// that the king itself was blocking.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // From the starting position the king is hemmed in by its own pieces.
+    /// assert_eq!(Position::new().king_moves().count(), 0);
+    /// ```
     pub fn king_moves(&self) -> impl Iterator<Item = Move> {
         let orig = self.board.king(self.color);
         // Remove our king for attack detection so sliders see through its current
@@ -191,6 +450,14 @@ impl Position {
         moves.chain(self.castling_moves().into_iter().flatten())
     }
 
+    /// Iterates all legal knight moves.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // 2 knights × 2 destinations each = 4 from the starting position.
+    /// assert_eq!(Position::new().knight_moves().count(), 4);
+    /// ```
     pub fn knight_moves(&self) -> impl Iterator<Item = Move> {
         let knights = self.board.bypiece(Piece {
             role: Role::Knight,
@@ -201,6 +468,14 @@ impl Position {
             .filter_map(|(from, to)| self.normal(from, to, Role::Knight))
     }
 
+    /// Iterates all legal bishop moves.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // Bishops are blocked by own pawns at the start.
+    /// assert_eq!(Position::new().bishop_moves().count(), 0);
+    /// ```
     pub fn bishop_moves(&self) -> impl Iterator<Item = Move> {
         let bishops = self.board.bypiece(Piece {
             role: Role::Bishop,
@@ -215,6 +490,14 @@ impl Position {
             .filter_map(|(from, to)| self.normal(from, to, Role::Bishop))
     }
 
+    /// Iterates all legal rook moves.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // Rooks are locked in by their own pieces at the start.
+    /// assert_eq!(Position::new().rook_moves().count(), 0);
+    /// ```
     pub fn rook_moves(&self) -> impl Iterator<Item = Move> {
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
@@ -229,6 +512,14 @@ impl Position {
             .filter_map(|(from, to)| self.normal(from, to, Role::Rook))
     }
 
+    /// Iterates all legal queen moves (bishop-like + rook-like rays).
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// // The queen has no legal moves from the starting position.
+    /// assert_eq!(Position::new().queen_moves().count(), 0);
+    /// ```
     pub fn queen_moves(&self) -> impl Iterator<Item = Move> {
         let queens = self.board.bypiece(Piece {
             role: Role::Queen,
@@ -247,6 +538,8 @@ impl Position {
             .filter_map(|(from, to)| self.normal(from, to, Role::Queen))
     }
 
+    /// Returns the legal castling moves for the side to move, or `None` if
+    /// castling is unavailable because the king is currently in check.
     fn castling_moves(&self) -> Option<impl Iterator<Item = Move>> {
         if self.board.is_check(self.color) {
             return None;
@@ -258,6 +551,10 @@ impl Position {
         )
     }
 
+    /// Attempts to build a single castling move on the given [`Side`].
+    /// Returns `None` if rights are missing, the rook has moved, squares
+    /// between king and rook are occupied, or the king would transit an
+    /// attacked square.
     fn castle(&self, side: Side) -> Option<Move> {
         if !self.history.castles.can_side(self.color, side) {
             return None;
@@ -290,6 +587,9 @@ impl Position {
         ))
     }
 
+    /// Builds a non-special move (quiet push or simple capture) of `role`
+    /// from `orig` to `dest`. Returns `None` if the destination holds one
+    /// of our own pieces or `orig` is empty.
     fn normal(&self, orig: Square, dest: Square, role: Role) -> Option<Move> {
         let piece = Piece {
             role,
@@ -307,6 +607,8 @@ impl Position {
         }
     }
 
+    /// Builds an en-passant [`Move`] from `orig` to `dest`. The captured
+    /// pawn sits on the file of `dest` and the rank of `orig`.
     fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
         let captured = Square::from_file_and_rank(dest.file(), orig.rank());
         let after = self.board.capture(orig, dest, Some(captured))?;
@@ -315,6 +617,9 @@ impl Position {
         ))
     }
 
+    /// Expands a single pawn step from `from` to `to` into the appropriate
+    /// move set: four promotion moves if `from` is on the seventh rank
+    /// (relative to the mover), otherwise one ordinary pawn move.
     fn gen_pawn_moves(
         &self,
         from: Square,
@@ -384,6 +689,9 @@ fn castle_squares(color: Color, side: Side) -> (Square, Square, Bitboard, Bitboa
         ),
     }
 }
+/// Returns the en-passant target square if `last_move` was a two-square
+/// pawn push by `color`'s opponent — that is, the square the pushed pawn
+/// passed over. Returns `None` otherwise.
 fn potential_enpassant_sq(last_move: Uci, board: Board, color: Color) -> Option<Square> {
     board.piece_at(last_move.dest).and_then(|piece| {
         if piece.color != color
