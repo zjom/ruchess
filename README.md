@@ -4,10 +4,6 @@ rust chess
 
 [docs](https://docs.rs/ruchess)
 
-i only support standard chess. it is unlikely i will support other variants.
-
-probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want more features
-
 ## features
 
 - highly compact bitboard representations
@@ -19,6 +15,10 @@ probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want m
 - immutable
 - hella [docs](https://docs.rs/ruchess)
 - really really really fast (relatively)
+
+i only support standard chess. it is unlikely i will support other variants.
+
+probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want more features
 
 ## quickstart
 
