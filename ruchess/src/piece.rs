@@ -1,5 +1,5 @@
 use crate::{color::Color, role::Role};
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Piece {
     pub role: Role,
     pub color: Color,
