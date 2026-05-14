@@ -306,8 +306,7 @@ impl Position {
         }
     }
 
-    /// Builds an enpassant [`Move`] from `orig` to `dest`.
-    pub fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
+    fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
         let captured = Square::from_file_and_rank(dest.file(), orig.rank());
         let after = self.board.capture(orig, dest, Some(captured))?;
         Some(Move::enpassant(
