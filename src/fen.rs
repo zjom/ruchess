@@ -81,7 +81,7 @@ pub fn parse(s: &str) -> Result<Position, ParseFenError> {
     let ply = fullmove_s
         .parse()
         .map_err(|_| ParseFenError::InvalidFullmoveNumber)
-        .map(|full_moves| Ply::from_full_moves(full_moves, color))?;
+        .map(Ply::from_full_moves)?;
 
     let history = History {
         last_move,

@@ -78,22 +78,22 @@ impl Ply {
         1 + self.0 / 2
     }
 
-    /// Constructs a ply from the number of full-moves (1-based)
+    /// Creates a [`Ply`] at the start of the given full-move number (i.e., White's
+    /// half-move within that move).
+    ///
+    /// This is the inverse of [`Ply::full_move_number`]:
+    /// `Ply::from_full_moves(p.full_move_number()).full_move_number() == p.full_move_number()`
     ///
     /// # Example
     /// ```
     /// # use ruchess::ply::Ply;
-    /// # use ruchess::color::Color;
-    /// assert_eq!(Ply::from_full_moves(1, Color::White), Ply::with(1));
-    /// assert_eq!(Ply::from_full_moves(1, Color::Black), Ply::with(2));
-    /// assert_eq!(Ply::from_full_moves(2, Color::White), Ply::with(3));
-    /// assert_eq!(Ply::from_full_moves(2, Color::Black), Ply::with(4));
+    /// assert_eq!(Ply::from_full_moves(1), Ply::new());           // ply 0
+    /// assert_eq!(Ply::from_full_moves(2), Ply::new().incr().incr()); // ply 2
+    /// assert_eq!(Ply::from_full_moves(1).full_move_number(), 1);
+    /// assert_eq!(Ply::from_full_moves(5).full_move_number(), 5);
     /// ```
-    pub fn from_full_moves(n: u32, active_color: Color) -> Self {
-        match active_color {
-            Color::White => Self(n * 2 - 1),
-            Color::Black => Self(n * 2),
-        }
+    pub fn from_full_moves(full_moves: u32) -> Self {
+        Ply((full_moves - 1) * 2)
     }
 
     fn is_even(&self) -> bool {
