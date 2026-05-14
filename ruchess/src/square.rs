@@ -117,7 +117,9 @@ impl Square {
     }
 
     pub fn ydist(self, other: Square) -> u8 {
-        self.rank().as_u8() - other.rank().as_u8()
+        let (a, b) = (self.rank().as_u8(), other.rank().as_u8());
+
+        a.wrapping_sub(b).min(b.wrapping_sub(a))
     }
 
     pub fn prev_rank(self, color: Color) -> Option<Square> {
