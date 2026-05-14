@@ -51,7 +51,6 @@
 //! #     square::A1,
 //! #     square::A3,
 //! #     board,
-//! #     board
 //! # );
 //! ur = ur.update(&m);
 //!
@@ -135,7 +134,6 @@ impl UnmovedRooks {
     /// #     square::A1,
     /// #     square::A3,
     /// #     board,
-    /// #     board
     /// # );
     /// let updated = ur.update(&m);
     /// assert!(!updated.contains(square::A1));

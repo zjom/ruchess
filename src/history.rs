@@ -56,6 +56,25 @@ impl History {
         }
     }
 
+    /// Like [`Self::new`], but with repetition tracking permanently disabled.
+    ///
+    /// Skips the Zobrist hash computation and the `Vec<u8>` growth that
+    /// [`Self::update`] would otherwise do on every move. Use this for
+    /// perft, fixed-depth search, and any other workload that never calls
+    /// [`Self::is_threefold_repetition`] or [`Self::is_fivefold_repetition`].
+    ///
+    /// Once disabled, the `Disabled` state propagates through every
+    /// descendant history produced by [`Self::update`].
+    pub fn new_no_repetition() -> Self {
+        Self {
+            last_move: None,
+            castles: Castles::standard(),
+            unmoved_rooks: UnmovedRooks::standard(),
+            half_move_clock: HalfMoveClock::new(),
+            position_hashes: PositionHash::disabled(),
+        }
+    }
+
     /// Returns a new history with `castles` replacing the current rights,
     /// leaving every other field unchanged.
     ///
@@ -75,9 +94,12 @@ impl History {
     ///
     /// Used to record a position without playing a move through it — for
     /// example to seed the trail from a FEN string before any moves have
-    /// been generated.
+    /// been generated. No-op when repetition tracking is disabled.
     #[must_use]
     pub fn push_position(self, position: &Position) -> Self {
+        if self.position_hashes.is_disabled() {
+            return self;
+        }
         let entry = PositionHash::from_hash(Hash::from_position(position));
         Self {
             position_hashes: entry.combine(&self.position_hashes),
@@ -91,10 +113,16 @@ impl History {
     /// in `last_move`, updates castling rights and unmoved rooks, and either
     /// resets or increments the half-move clock based on whether `mve` was a
     /// pawn move or capture.
+    ///
+    /// Skips the hash work entirely when repetition tracking is disabled.
     #[must_use]
     pub fn update(self, prev: &Position, mve: &Move) -> Self {
-        let entry = PositionHash::from_hash(Hash::from_position(prev));
-        let position_hashes = entry.combine(&self.position_hashes);
+        let position_hashes = if self.position_hashes.is_disabled() {
+            PositionHash::disabled()
+        } else {
+            let entry = PositionHash::from_hash(Hash::from_position(prev));
+            entry.combine(&self.position_hashes)
+        };
 
         let half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
             self.half_move_clock.reset()

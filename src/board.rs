@@ -216,6 +216,27 @@ impl Board {
         }
     }
 
+    /// Toggles (XORs) the bits for `piece` at `sq` in the role, color, and
+    /// occupied bitboards.
+    ///
+    /// This is the make-move primitive used by the move generator when the
+    /// piece at the square is already known by construction: it skips the
+    /// `find` scan that [`Board::pop`] and [`Board::set`] perform.
+    ///
+    /// The caller is responsible for correctness — if `sq` was empty, the
+    /// piece is added; if `sq` held exactly `piece`, the piece is removed.
+    /// Calling with a mismatched role or color produces an invalid board.
+    #[inline]
+    #[must_use]
+    pub(crate) fn xor_piece(self, sq: Square, piece: Piece) -> Self {
+        let bb = Bitboard::from(sq);
+        Self {
+            by_role: self.by_role.update(piece.role, |x| x ^ bb),
+            by_color: self.by_color.update(piece.color, |x| x ^ bb),
+            occupied: self.occupied ^ bb,
+        }
+    }
+
     /// Returns a new [`Board`] with piece at `sq` removed, returning it if any.
     ///
     /// # Example

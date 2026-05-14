@@ -42,7 +42,9 @@ fn main() {
     let fen_str = &args[0];
     let depth: u32 = args[1].parse().expect("depth must be a number");
 
-    let pos = fen::parse(fen_str).expect("FEN should parse");
+    let pos = fen::parse(fen_str)
+        .expect("FEN should parse")
+        .without_repetition();
     let history = pos.history().clone();
 
     let mut rows: Vec<(String, u64)> = pos

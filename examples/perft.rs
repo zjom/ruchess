@@ -86,7 +86,9 @@ fn main() {
         {
             continue;
         }
-        let pos = fen::parse(fen_str).expect("FEN should parse");
+        let pos = fen::parse(fen_str)
+            .expect("FEN should parse")
+            .without_repetition();
         let depths = expected.len() as u32;
         let cap = max_depth.unwrap_or(depths).min(depths);
         for d in 1..=cap {

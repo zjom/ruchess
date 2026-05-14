@@ -42,13 +42,11 @@ pub struct Move {
     pub enpassant: Option<()>,
     /// The board state resulting from applying this move.
     pub after: Board,
-    /// The board state immediately before this move, if known.
-    pub previous: Option<Board>,
 }
 
 impl Move {
     /// Builds a quiet (non-capturing, non-special) move from `orig` to `dest`.
-    pub fn quiet(piece: Piece, orig: Square, dest: Square, prev: Board, after: Board) -> Self {
+    pub fn quiet(piece: Piece, orig: Square, dest: Square, after: Board) -> Self {
         Self {
             piece,
             orig,
@@ -58,7 +56,6 @@ impl Move {
             castle: None,
             enpassant: None,
             after,
-            previous: Some(prev),
         }
     }
 
@@ -69,7 +66,6 @@ impl Move {
         orig: Square,
         dest: Square,
         captured: Square,
-        prev: Board,
         after: Board,
     ) -> Self {
         Self {
@@ -81,7 +77,6 @@ impl Move {
             castle: None,
             enpassant: None,
             after,
-            previous: Some(prev),
         }
     }
 
@@ -94,7 +89,6 @@ impl Move {
         side: Side,
         king_from: Square,
         king_to: Square,
-        prev: Board,
         after: Board,
     ) -> Self {
         Self {
@@ -109,7 +103,6 @@ impl Move {
             castle: Some(side),
             enpassant: None,
             after,
-            previous: Some(prev),
         }
     }
 
@@ -120,7 +113,6 @@ impl Move {
         orig: Square,
         dest: Square,
         captured: Square,
-        prev: Board,
         after: Board,
     ) -> Self {
         Self {
@@ -135,7 +127,6 @@ impl Move {
             castle: None,
             enpassant: Some(()),
             after,
-            previous: Some(prev),
         }
     }
 
@@ -148,7 +139,6 @@ impl Move {
         dest: Square,
         role: PromotableRole,
         captured: Option<Square>,
-        prev: Board,
         after: Board,
     ) -> Self {
         Self {
@@ -163,7 +153,6 @@ impl Move {
             castle: None,
             enpassant: None,
             after,
-            previous: Some(prev),
         }
     }
 }

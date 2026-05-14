@@ -57,7 +57,6 @@ impl Uci {
     ///     square::E2,
     ///     square::E4,
     ///     Board::EMPTY,
-    ///     Board::EMPTY,
     /// );
     /// let u = Uci::from_move(m);
     /// assert_eq!(u.orig, square::E2);

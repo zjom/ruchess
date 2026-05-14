@@ -262,7 +262,6 @@ impl Castles {
     ///     square::E1,
     ///     square::E2,
     ///     Board::EMPTY,
-    ///     Board::EMPTY,
     /// );
     /// let updated = castles.update(&m);
     /// assert!(!updated.can(Color::White));
@@ -516,7 +515,6 @@ mod tests {
             square::E1,
             square::E1,
             Board::EMPTY,
-            Board::EMPTY,
         )
     }
 
@@ -534,7 +532,6 @@ mod tests {
             Side::King,
             square::E1,
             square::E1,
-            Board::EMPTY,
             Board::EMPTY,
         );
         let c = Castles::standard().update(&m);

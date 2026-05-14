@@ -40,49 +40,84 @@ impl Hash {
     }
 }
 
-/// Concatenated 3-byte Zobrist hashes, ordered from most-recent to oldest.
+/// Concatenated 3-byte Zobrist hashes, ordered from most-recent to oldest,
+/// or a `Disabled` sentinel that suppresses repetition tracking entirely.
 ///
 /// Each `Hash` contributes [`Hash::SIZE`] bytes. Entries `[0..3)` correspond
 /// to the current position; entries at offsets `Hash::SIZE * 2`, `Hash::SIZE * 4`,
 /// ... correspond to earlier positions with the same side to move.
+///
+/// The `Disabled` variant skips the hash computation and `Vec` traffic on
+/// every move — used by perft and search loops that never query repetition.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PositionHash(Vec<u8>);
+pub enum PositionHash {
+    /// Repetition tracking is off. `combine` is a no-op, `is_repetition`
+    /// always returns false (for `times > 1`).
+    Disabled,
+    /// A growing byte trail of 3-byte hashes.
+    Trail(Vec<u8>),
+}
 
 impl PositionHash {
     /// Wraps an existing byte vector. The caller is responsible for ensuring
     /// the length is a multiple of [`Hash::SIZE`] if repetition detection is
     /// to behave correctly.
     pub fn new(value: Vec<u8>) -> Self {
-        Self(value)
+        Self::Trail(value)
     }
 
     /// Returns an empty trail with no entries.
     pub fn empty() -> Self {
-        Self(Vec::new())
+        Self::Trail(Vec::new())
+    }
+
+    /// Returns a `Disabled` trail — repetition tracking is permanently off
+    /// for any chain of histories descending from this value.
+    pub fn disabled() -> Self {
+        Self::Disabled
     }
 
     /// Builds a single-entry trail containing the three high bytes of `h`,
     /// in big-endian order.
     pub fn from_hash(h: Hash) -> Self {
-        Self(vec![(h.0 >> 16) as u8, (h.0 >> 8) as u8, h.0 as u8])
+        Self::Trail(vec![(h.0 >> 16) as u8, (h.0 >> 8) as u8, h.0 as u8])
     }
 
-    /// Returns the raw byte buffer.
+    /// Returns the raw byte buffer. Empty when `Disabled`.
     pub fn value(&self) -> &[u8] {
-        &self.0
+        match self {
+            Self::Disabled => &[],
+            Self::Trail(v) => v,
+        }
     }
 
-    /// Returns `true` if no positions have been recorded.
+    /// Returns `true` if no positions have been recorded (including `Disabled`).
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        match self {
+            Self::Disabled => true,
+            Self::Trail(v) => v.is_empty(),
+        }
+    }
+
+    /// Returns `true` if repetition tracking is turned off on this trail.
+    pub fn is_disabled(&self) -> bool {
+        matches!(self, Self::Disabled)
     }
 
     /// Prepends `self`'s entries with `other`'s, producing a trail that
     /// keeps `self` (most recent) at the front.
+    ///
+    /// If either side is `Disabled`, the result is `Disabled` — repetition
+    /// tracking, once off, stays off for descendants.
     #[must_use]
-    pub fn combine(mut self, other: &PositionHash) -> Self {
-        self.0.extend_from_slice(&other.0);
-        self
+    pub fn combine(self, other: &PositionHash) -> Self {
+        match (self, other) {
+            (Self::Disabled, _) | (_, Self::Disabled) => Self::Disabled,
+            (Self::Trail(mut v), Self::Trail(o)) => {
+                v.extend_from_slice(o);
+                Self::Trail(v)
+            }
+        }
     }
 
     /// Whether the leading hash has appeared at least `times` times in total
@@ -92,17 +127,21 @@ impl PositionHash {
         if times <= 1 {
             return true;
         }
-        let len = self.0.len();
+        let data = match self {
+            Self::Disabled => return false,
+            Self::Trail(v) => v,
+        };
+        let len = data.len();
         if len <= (times - 1) * 4 * Hash::SIZE {
             return false;
         }
-        let x = self.0[0];
-        let y = self.0[1];
-        let z = self.0[2];
+        let x = data[0];
+        let y = data[1];
+        let z = data[2];
         let mut i = Hash::SIZE * 2;
         let mut count = 0usize;
         while i + Hash::SIZE <= len && count < times - 1 {
-            if x == self.0[i] && y == self.0[i + 1] && z == self.0[i + 2] {
+            if x == data[i] && y == data[i + 1] && z == data[i + 2] {
                 count += 1;
             }
             i += Hash::SIZE * 2;

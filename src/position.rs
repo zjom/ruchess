@@ -91,6 +91,36 @@ impl Position {
         }
     }
 
+    /// Standard starting position with repetition tracking turned off.
+    ///
+    /// Use this for perft, fixed-depth search, and any workload that never
+    /// queries [`History::is_threefold_repetition`] — it skips the Zobrist
+    /// hash computation and the per-move `Vec<u8>` growth.
+    ///
+    /// See [`History::new_no_repetition`].
+    pub fn new_no_repetition() -> Self {
+        Self {
+            board: Board::new(),
+            history: History::new_no_repetition(),
+            color: Color::White,
+            ply: Ply::new(),
+        }
+    }
+
+    /// Returns a copy of this position with repetition tracking disabled in
+    /// its [`History`]. Useful after parsing a FEN to opt the resulting
+    /// position chain out of Zobrist hashing.
+    #[must_use]
+    pub fn without_repetition(self) -> Self {
+        Self {
+            history: History {
+                position_hashes: crate::hash::PositionHash::disabled(),
+                ..self.history
+            },
+            ..self
+        }
+    }
+
     /// Returns a new position with the given [`Board`], preserving the
     /// existing color and history.
     ///
@@ -606,14 +636,22 @@ impl Position {
             return None;
         }
 
+        let king = Piece {
+            role: Role::King,
+            color: self.color,
+        };
+        let rook = Piece {
+            role: Role::Rook,
+            color: self.color,
+        };
         let after = self
             .board
-            .mve(king_from, king_to)?
-            .mve(rook_from, rook_to)?;
+            .xor_piece(king_from, king)
+            .xor_piece(king_to, king)
+            .xor_piece(rook_from, rook)
+            .xor_piece(rook_to, rook);
 
-        Some(Move::castle(
-            self.color, side, king_from, king_to, self.board, after,
-        ))
+        Some(Move::castle(self.color, side, king_from, king_to, after))
     }
 
     /// Builds a non-special move (quiet push or simple capture) of `role`
@@ -625,25 +663,46 @@ impl Position {
             color: self.color,
         };
         if self.board.is_occupied(dest) {
+            // Captured piece's role is unknown; look it up. Color is fixed
+            // (our opponent — same-color captures are rejected just above).
+            let captured_role = self.board.role_at(dest)?;
             if self.board.color_at(dest) == Some(self.color) {
                 return None;
             }
-            let after = self.board.capture(orig, dest, None)?;
-            Some(Move::capture(piece, orig, dest, dest, self.board, after))
+            let captured = Piece {
+                role: captured_role,
+                color: self.color.opponent(),
+            };
+            let after = self
+                .board
+                .xor_piece(dest, captured)
+                .xor_piece(orig, piece)
+                .xor_piece(dest, piece);
+            Some(Move::capture(piece, orig, dest, dest, after))
         } else {
-            let after = self.board.mve(orig, dest)?;
-            Some(Move::quiet(piece, orig, dest, self.board, after))
+            let after = self.board.xor_piece(orig, piece).xor_piece(dest, piece);
+            Some(Move::quiet(piece, orig, dest, after))
         }
     }
 
     /// Builds an en-passant [`Move`] from `orig` to `dest`. The captured
     /// pawn sits on the file of `dest` and the rank of `orig`.
     fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
-        let captured = Square::from_file_and_rank(dest.file(), orig.rank());
-        let after = self.board.capture(orig, dest, Some(captured))?;
-        Some(Move::enpassant(
-            self.color, orig, dest, captured, self.board, after,
-        ))
+        let captured_sq = Square::from_file_and_rank(dest.file(), orig.rank());
+        let mover = Piece {
+            role: Role::Pawn,
+            color: self.color,
+        };
+        let captured = Piece {
+            role: Role::Pawn,
+            color: self.color.opponent(),
+        };
+        let after = self
+            .board
+            .xor_piece(captured_sq, captured)
+            .xor_piece(orig, mover)
+            .xor_piece(dest, mover);
+        Some(Move::enpassant(self.color, orig, dest, captured_sq, after))
     }
 
     /// Expands a single pawn step from `from` to `to` into the appropriate
@@ -657,33 +716,47 @@ impl Position {
     ) -> impl Iterator<Item = Move> + '_ {
         let is_promotion = from.rank() == self.color.seventh_rank();
 
+        let pawn = Piece {
+            role: Role::Pawn,
+            color: self.color,
+        };
+
         // Up to 4 promotion moves — empty if not a promoting rank.
         let promotions = is_promotion
             .then_some(PromotableRole::ROLES)
             .into_iter()
             .flatten()
             .filter_map(move |r| {
-                let (after, captured) = if is_capture {
-                    (self.board.capture(from, to, None)?, Some(to))
-                } else {
-                    (self.board.mve(from, to)?, None)
-                };
                 let promoted_role = match r {
                     PromotableRole::Queen => Role::Queen,
                     PromotableRole::Rook => Role::Rook,
                     PromotableRole::Bishop => Role::Bishop,
                     PromotableRole::Knight => Role::Knight,
                 };
-                let after = after.set(
-                    to,
-                    Piece {
-                        role: promoted_role,
-                        color: self.color,
-                    },
-                );
-                Some(Move::promotion(
-                    self.color, from, to, r, captured, self.board, after,
-                ))
+                let promoted = Piece {
+                    role: promoted_role,
+                    color: self.color,
+                };
+                let (after, captured) = if is_capture {
+                    let captured_role = self.board.role_at(to)?;
+                    let captured = Piece {
+                        role: captured_role,
+                        color: self.color.opponent(),
+                    };
+                    let after = self
+                        .board
+                        .xor_piece(to, captured)
+                        .xor_piece(from, pawn)
+                        .xor_piece(to, promoted);
+                    (after, Some(to))
+                } else {
+                    let after = self
+                        .board
+                        .xor_piece(from, pawn)
+                        .xor_piece(to, promoted);
+                    (after, None)
+                };
+                Some(Move::promotion(self.color, from, to, r, captured, after))
             });
 
         // 0 or 1 normal pawn moves — empty if it IS a promoting rank.
