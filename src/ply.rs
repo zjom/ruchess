@@ -30,6 +30,11 @@ impl Ply {
         Self(0)
     }
 
+    /// Constructs a new ply counter initialized to `ply`.
+    pub fn with(ply: u32) -> Self {
+        Self(ply)
+    }
+
     /// Returns the side whose turn it is.
     ///
     /// # Example
@@ -71,6 +76,24 @@ impl Ply {
     /// ```
     pub fn full_move_number(&self) -> u32 {
         1 + self.0 / 2
+    }
+
+    /// Constructs a ply from the number of full-moves (1-based)
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::ply::Ply;
+    /// # use ruchess::color::Color;
+    /// assert_eq!(Ply::from_full_moves(1, Color::White), Ply::with(1));
+    /// assert_eq!(Ply::from_full_moves(1, Color::Black), Ply::with(2));
+    /// assert_eq!(Ply::from_full_moves(2, Color::White), Ply::with(3));
+    /// assert_eq!(Ply::from_full_moves(2, Color::Black), Ply::with(4));
+    /// ```
+    pub fn from_full_moves(n: u32, active_color: Color) -> Self {
+        match active_color {
+            Color::White => Self(n * 2 - 1),
+            Color::Black => Self(n * 2),
+        }
     }
 
     fn is_even(&self) -> bool {
