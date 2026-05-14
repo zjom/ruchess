@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 6b05e55274c5d21ec4fe8bff035c98d291351faaccb5b62cfbdd8327710c9af6 # shrinks to p = Position { board: Board { by_role: ByRole { pawn: Bitboard(0), rook: Bitboard(0), knight: Bitboard(0), bishop: Bitboard(256), queen: Bitboard(0), king: Bitboard(17592186044432) }, by_color: ByColor { white: Bitboard(16), black: Bitboard(17592186044672) }, occupied: Bitboard(17592186044688) }, history: History { last_move: None, castles: Castles(Bitboard(0)), unmoved_rooks: UnmovedRooks(Bitboard(0)), half_move_clock: HalfMoveClock(0), position_hashes: PositionHash([]) }, color: Black }
