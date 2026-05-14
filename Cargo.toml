@@ -2,6 +2,8 @@
 name = "ruchess"
 version = "0.0.1"
 edition = "2024"
+author = "zjom"
+license = "Unlicense"
 
 [dependencies]
 lazy_static = "1.5.0"
