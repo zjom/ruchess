@@ -91,18 +91,11 @@ impl Board {
     /// Overwrites any existing piece.
     #[must_use]
     pub fn set(self, sq: Square, p: Piece) -> Self {
-        let (board, piece) = self.pop(sq);
-        match piece {
-            Some(_) => Self {
-                by_role: board.by_role.update(p.role, |bb| bb.set(sq)),
-                by_color: board.by_color.update(p.color, |bb| bb.set(sq)),
-                occupied: board.occupied,
-            },
-            None => Self {
-                by_role: board.by_role.update(p.role, |bb| bb.set(sq)),
-                by_color: board.by_color.update(p.color, |bb| bb.set(sq)),
-                occupied: board.occupied.set(sq),
-            },
+        let (board, _) = self.pop(sq);
+        Self {
+            by_role: board.by_role.update(p.role, |bb| bb.set(sq)),
+            by_color: board.by_color.update(p.color, |bb| bb.set(sq)),
+            occupied: board.occupied.set(sq),
         }
     }
 
