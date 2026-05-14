@@ -214,6 +214,7 @@ impl Position {
             })
             .filter_map(|(from, to)| self.normal(from, to, Role::Bishop))
     }
+
     pub fn rook_moves(&self) -> impl Iterator<Item = Move> {
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
