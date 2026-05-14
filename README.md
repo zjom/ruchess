@@ -59,5 +59,5 @@ probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want m
 
 - [ ] benchmarks
     - will move to mutable api if benchmarks are very bad
-- [ ] fen parsing
+- [x] fen parsing
 - [ ] real uci support
