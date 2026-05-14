@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     while game.outcome().is_none() {
         println!("\n\n{}", game);
         let uci = get_input("format: <from><to><optional promotion role>\nexample: e2e4, e7e8q");
-        if let Some(g) = game.clone().mve(uci.orig, uci.dest) {
+        if let Some(g) = game.clone().mve(&uci) {
             game = g;
         }
     }

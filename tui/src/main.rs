@@ -116,7 +116,7 @@ impl App {
                     dest: to_sq,
                     promotion: None,
                 };
-                match self.game.clone().mve(mv.orig, mv.dest) {
+                match self.game.clone().mve(&mv) {
                     Some(game) => {
                         self.game = game;
                         let s = format!("{from_sq}{to_sq}");
