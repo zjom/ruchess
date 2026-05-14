@@ -37,7 +37,7 @@ or in your `cargo.toml`
 
 ```toml
 [dependencies]
-ruchess = "0.0.3"
+ruchess = "0.0.4"
 ```
 
 ```rust
