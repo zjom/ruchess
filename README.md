@@ -4,6 +4,17 @@ rust chess
 
 [docs](https://docs.rs/ruchess)
 
+## features
+
+- highly compact bitboard representations
+- zobrist hashing
+- magic attack tables
+- move generation & validation
+- outcome evaluation (checkmate, stalemate, repetition, insufficient material)
+- fen parsing
+- immutable
+- hella [docs](https://docs.rs/ruchess)
+- really really really fast (relatively)
 
 ## quickstart
 
