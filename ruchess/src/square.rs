@@ -240,7 +240,7 @@ impl FromStr for Rank {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Square(pub u8);
 impl Square {
     pub const fn new(idx: u32) -> Square {
@@ -291,10 +291,18 @@ impl Square {
     }
 }
 
+impl std::fmt::Debug for Square {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let file = self.file().as_str();
+        let rank = self.rank().as_str();
+        write!(f, "{}{}", file, rank)
+    }
+}
+
 impl std::fmt::Display for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let file = (b'A' + self.0 % 8) as char;
-        let rank = (b'1' + (self.0 / 8) % 8) as char;
+        let file = self.file().as_str();
+        let rank = self.rank().as_str();
         write!(f, "{}{}", file, rank)
     }
 }
