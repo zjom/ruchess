@@ -48,7 +48,8 @@
 //! ### Example: Masking a Rank
 //! ```
 //! # use ruchess::bitboard::Bitboard;
-//! # use ruchess::square::{self, Rank};
+//! # use ruchess::square;
+//! # use ruchess::rank::Rank;
 //! let b = Bitboard::EMPTY;
 //!
 //! // You can OR a Square or a Rank directly into a Bitboard
@@ -74,7 +75,7 @@
 //! }
 //! ```
 
-use crate::square::{File, Rank, Square};
+use crate::{file::File, rank::Rank, square::Square};
 
 /// A 64-bit representation of the chess board.
 ///

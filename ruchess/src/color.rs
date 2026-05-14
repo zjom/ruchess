@@ -17,13 +17,13 @@
 //! # use ruchess::color::Color;
 //! let side = Color::White;
 //! assert_eq!(side.opponent(), Color::Black);
-//! assert_eq!(side.back_rank(), ruchess::square::Rank::First);
+//! assert_eq!(side.back_rank(), ruchess::rank::Rank::First);
 //! ```
 
 use std::fmt::Display;
 
+use crate::rank::Rank;
 use crate::side::Side;
-use crate::square::Rank;
 use crate::square::{self, Square};
 
 /// Represents one of the two players in a chess game.
@@ -75,7 +75,7 @@ impl Color {
     /// # Example
     /// ```
     /// # use ruchess::color::Color;
-    /// # use ruchess::square::Rank;
+    /// # use ruchess::rank::Rank;
     /// assert_eq!(Color::White.back_rank(), Rank::First);
     /// assert_eq!(Color::Black.back_rank(), Rank::Eighth);
     /// ```
@@ -91,7 +91,7 @@ impl Color {
     /// # Example
     /// ```
     /// # use ruchess::color::Color;
-    /// # use ruchess::square::Rank;
+    /// # use ruchess::rank::Rank;
     /// assert_eq!(Color::White.second_rank(), Rank::Second);
     /// assert_eq!(Color::Black.second_rank(), Rank::Seventh);
     /// ```
@@ -109,7 +109,7 @@ impl Color {
     /// # Example
     /// ```
     /// # use ruchess::color::Color;
-    /// # use ruchess::square::Rank;
+    /// # use ruchess::rank::Rank;
     /// assert_eq!(Color::White.fourth_rank(), Rank::Fourth);
     /// assert_eq!(Color::Black.fourth_rank(), Rank::Fifth);
     /// ```
@@ -125,7 +125,7 @@ impl Color {
     /// # Example
     /// ```
     /// # use ruchess::color::Color;
-    /// # use ruchess::square::Rank;
+    /// # use ruchess::rank::Rank;
     /// assert_eq!(Color::White.seventh_rank(), Rank::Seventh);
     /// assert_eq!(Color::Black.seventh_rank(), Rank::Second);
     /// ```
