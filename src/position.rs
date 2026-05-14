@@ -1187,7 +1187,7 @@ mod proptests {
     }
 
     proptest! {
-        // 1. Every generated move is for a piece of the side to move.
+        // Every generated move is for a piece of the side to move.
         #[test]
         fn move_color_matches_side_to_move(p in random_position()) {
             for m in p.valid_moves() {
@@ -1195,7 +1195,7 @@ mod proptests {
             }
         }
 
-        // 2. No null moves.
+        // No null moves.
         #[test]
         fn move_orig_not_equal_dest(p in random_position()) {
             for m in p.valid_moves() {
@@ -1203,7 +1203,7 @@ mod proptests {
             }
         }
 
-        // 3. The origin square holds the piece claimed by the move.
+        // The origin square holds the piece claimed by the move.
         #[test]
         fn move_origin_holds_claimed_piece(p in random_position()) {
             for m in p.valid_moves() {
@@ -1211,7 +1211,7 @@ mod proptests {
             }
         }
 
-        // 4. After-board has exactly one king of each color (king cannot be captured).
+        // After-board has exactly one king of each color (king cannot be captured).
         #[test]
         fn after_board_keeps_both_kings(p in random_position()) {
             for m in p.valid_moves() {
@@ -1222,7 +1222,7 @@ mod proptests {
             }
         }
 
-        // 5. After-board satisfies bitboard invariants.
+        // After-board satisfies bitboard invariants.
         #[test]
         fn after_board_invariants(p in random_position()) {
             for m in p.valid_moves() {
@@ -1234,7 +1234,7 @@ mod proptests {
             }
         }
 
-        // 6. Move generation is deterministic.
+        // Move generation is deterministic.
         #[test]
         fn deterministic(p in random_position()) {
             let a: Vec<Move> = p.valid_moves().collect();
@@ -1242,7 +1242,7 @@ mod proptests {
             prop_assert_eq!(a, b);
         }
 
-        // 7. valid_moves equals the disjoint union of per-piece-type generators filtered by `after.is_check`.
+        // `valid_moves()` equals the disjoint union of per-piece-type generators filtered by `after.is_check`.
         #[test]
         fn partition_matches_per_piece_generators(p in random_position()) {
             let total = p.valid_moves().count();
@@ -1256,7 +1256,7 @@ mod proptests {
             prop_assert_eq!(total, sum);
         }
 
-        // 8. valid_moves_at(s) is equivalent to filtering valid_moves() by orig==s.
+        // `valid_moves_at(s)` is equivalent to filtering `valid_moves()` by `orig==s`.
         #[test]
         fn valid_moves_at_filter_consistent(p in random_position()) {
             for i in 0u8..64 {
@@ -1267,13 +1267,13 @@ mod proptests {
             }
         }
 
-        // 9. has_moves agrees with valid_moves().next().is_some().
+        // has_moves agrees with `valid_moves().next().is_some()`.
         #[test]
         fn has_moves_iff_any(p in random_position()) {
             prop_assert_eq!(p.has_moves(), p.valid_moves().next().is_some());
         }
 
-        // 10. mve() with a listed move succeeds and flips color.
+        // `mve()` with a listed move succeeds and flips color.
         #[test]
         fn mve_with_listed_move_works(p in random_position()) {
             if let Some(m) = p.valid_moves().next() {
@@ -1285,7 +1285,7 @@ mod proptests {
             }
         }
 
-        // 11. Promotion moves only land on the opponent's back rank.
+        // Promotion moves only land on the opponent's back rank.
         #[test]
         fn promotion_only_on_opponent_back_rank(p in random_position()) {
             let opp_back = p.color().opponent().back_rank();
@@ -1297,7 +1297,7 @@ mod proptests {
             }
         }
 
-        // 12. valid_moves() does not mutate the position.
+        // `valid_moves()` does not mutate the position.
         #[test]
         fn valid_moves_does_not_mutate(p in random_position()) {
             let before = p.clone();
