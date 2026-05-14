@@ -410,7 +410,7 @@ mod proptests {
         random_board()
             .prop_filter("need ≥1 occupied and ≥1 empty square", |b| {
                 let n = b.occupied().0.count_ones();
-                n >= 1 && n < 64
+                (1..64).contains(&n)
             })
             .prop_flat_map(|b| {
                 let occ: Vec<Square> = b.occupied().into_iter().collect();
