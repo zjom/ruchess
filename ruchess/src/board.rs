@@ -272,6 +272,86 @@ impl Display for Board {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic = "there must be exactly 1 king per color"]
+    fn panic_when_no_kings() {
+        let bb = Board {
+            by_role: ByRole::from(|_| Bitboard::EMPTY),
+            by_color: ByColor::from(|c| match c {
+                Color::White => Bitboard::EMPTY,
+                Color::Black => Bitboard::EMPTY,
+            }),
+            occupied: Bitboard::EMPTY,
+        };
+
+        _ = bb.king(Color::White);
+    }
+
+    #[test]
+    #[should_panic = "there must be exactly 1 king per color"]
+    fn panic_when_no_white_king() {
+        let bb = Board {
+            by_role: ByRole::from(|_| Bitboard::EMPTY),
+            by_color: ByColor::from(|c| match c {
+                Color::White => Bitboard::EMPTY,
+                Color::Black => Bitboard::new(0x0001_0000_0000_0000),
+            }),
+            occupied: Bitboard::EMPTY,
+        };
+
+        _ = bb.king(Color::White);
+    }
+
+    #[test]
+    #[should_panic = "there must be exactly 1 king per color"]
+    fn panic_when_no_black_king() {
+        let bb = Board {
+            by_role: ByRole::from(|_| Bitboard::EMPTY),
+            by_color: ByColor::from(|c| match c {
+                Color::White => Bitboard::new(0x0001_0000_0000_0000),
+                Color::Black => Bitboard::EMPTY,
+            }),
+            occupied: Bitboard::EMPTY,
+        };
+
+        _ = bb.king(Color::Black);
+    }
+
+    #[test]
+    #[should_panic = "there must be exactly 1 king per color"]
+    fn panic_when_more_than_one_white_king() {
+        let bb = Board {
+            by_role: ByRole::from(|_| Bitboard::EMPTY),
+            by_color: ByColor::from(|c| match c {
+                Color::White => Bitboard::new(0x0000_0001_0000_0001),
+                Color::Black => Bitboard::new(0x0001_0000_0000_0000),
+            }),
+            occupied: Bitboard::EMPTY,
+        };
+
+        _ = bb.king(Color::White);
+    }
+
+    #[test]
+    #[should_panic = "there must be exactly 1 king per color"]
+    fn panic_when_more_than_one_black_king() {
+        let bb = Board {
+            by_role: ByRole::from(|_| Bitboard::EMPTY),
+            by_color: ByColor::from(|c| match c {
+                Color::White => Bitboard::new(0x0001_0000_0000_0000),
+                Color::Black => Bitboard::new(0x0000_0001_0000_0001),
+            }),
+            occupied: Bitboard::EMPTY,
+        };
+
+        _ = bb.king(Color::Black);
+    }
+}
+
+#[cfg(test)]
 mod proptests {
     use super::*;
     use proptest::prelude::*;
@@ -335,14 +415,20 @@ mod proptests {
             .prop_flat_map(|b| {
                 let occ: Vec<Square> = b.occupied().into_iter().collect();
                 let emp: Vec<Square> = (!b.occupied()).into_iter().collect();
-                (Just(b), proptest::sample::select(occ), proptest::sample::select(emp))
+                (
+                    Just(b),
+                    proptest::sample::select(occ),
+                    proptest::sample::select(emp),
+                )
             })
     }
 
     /// (board, orig ∈ occupied, dest ∈ occupied, orig != dest).
     fn board_and_two_occupied() -> impl Strategy<Value = (Board, Square, Square)> {
         random_board()
-            .prop_filter("need ≥2 occupied squares", |b| b.occupied().0.count_ones() >= 2)
+            .prop_filter("need ≥2 occupied squares", |b| {
+                b.occupied().0.count_ones() >= 2
+            })
             .prop_flat_map(|b| {
                 let occ: Vec<Square> = b.occupied().into_iter().collect();
                 (
@@ -358,7 +444,9 @@ mod proptests {
     /// from both orig and dest — the en-passant-like capture shape.
     fn board_and_capture_target() -> impl Strategy<Value = (Board, Square, Square, Square)> {
         random_board()
-            .prop_filter("need ≥2 occupied squares", |b| b.occupied().0.count_ones() >= 2)
+            .prop_filter("need ≥2 occupied squares", |b| {
+                b.occupied().0.count_ones() >= 2
+            })
             .prop_flat_map(|b| {
                 let occ: Vec<Square> = b.occupied().into_iter().collect();
                 (
@@ -368,7 +456,9 @@ mod proptests {
                     proptest::sample::select(occ),
                 )
             })
-            .prop_filter("cap != orig and cap != dest", |(_, o, d, c)| c != o && c != d)
+            .prop_filter("cap != orig and cap != dest", |(_, o, d, c)| {
+                c != o && c != d
+            })
     }
 
     // ── Equivalence helpers (Board has no PartialEq) ─────────────────────
