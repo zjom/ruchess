@@ -1,16 +1,27 @@
 # ruchess
 
-A rust chess library built around an persistent, functional API.
+A rust chess library built around a persistent, functional API.
 
 Every state-changing operation — placing a piece, playing a move, updating castling rights — returns a new value
 instead of mutating in place.
 
-                                                                                
+
 ## At a glance
 
+### Add to your project
 ```sh
 cargo add ruchess
 ```
+
+or in your `cargo.toml`
+
+```toml
+[dependencies]
+ruchess = "0.0.1"
+```
+
+
+### Usage
 
 ```rust
 use ruchess::game::Game;
