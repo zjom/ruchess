@@ -91,10 +91,10 @@ fn is_insufficient_material(board: &Board) -> bool {
 
 impl Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.position.board())?;
+        writeln!(f, "{}", self.position.board())?;
         match self.outcome {
-            Some(outcome) => writeln!(f, "{}", outcome),
-            None => writeln!(
+            Some(outcome) => write!(f, "{}", outcome),
+            None => write!(
                 f,
                 "{:?} to move (move {})",
                 self.turn.turn(),
