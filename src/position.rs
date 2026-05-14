@@ -668,6 +668,19 @@ impl Position {
                 } else {
                     (self.board.mve(from, to)?, None)
                 };
+                let promoted_role = match r {
+                    PromotableRole::Queen => Role::Queen,
+                    PromotableRole::Rook => Role::Rook,
+                    PromotableRole::Bishop => Role::Bishop,
+                    PromotableRole::Knight => Role::Knight,
+                };
+                let after = after.set(
+                    to,
+                    Piece {
+                        role: promoted_role,
+                        color: self.color,
+                    },
+                );
                 Some(Move::promotion(
                     self.color, from, to, r, captured, self.board, after,
                 ))
