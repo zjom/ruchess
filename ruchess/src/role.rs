@@ -1,82 +1,52 @@
+//! # Chess Piece Roles
+//!
+//! This module defines the types used to represent the different roles or types of pieces
+//! in a chess game. It includes the comprehensive [`Role`] enum, the [`PromotableRole`]
+//! subset for pawn promotions, and the [`ByRole`] container for storing data indexed by role.
+//!
+//! ---
+//!
+//! ## Example: Piece Roles and ASCII
+//! ```
+//! # use ruchess::role::Role;
+//! let king = Role::King;
+//! assert_eq!(king.as_ascii(), 'k');
+//! ```
+
 use std::{error::Error, fmt::Display, str::FromStr};
 
+/// Represents the type of a chess piece.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Role {
+    /// A Pawn.
     Pawn,
+    /// A Rook.
     Rook,
+    /// A Knight.
     Knight,
+    /// A Bishop.
     Bishop,
+    /// A Queen.
     Queen,
+    /// A King.
     King,
 }
 
+/// Represents the subset of piece roles that a pawn can be promoted to.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum PromotableRole {
+    /// A Rook.
     Rook,
+    /// A Knight.
     Knight,
+    /// A Bishop.
     Bishop,
+    /// A Queen.
     Queen,
 }
 
-impl PromotableRole {
-    pub const ROLES: [PromotableRole; 4] = [Self::Rook, Self::Knight, Self::Bishop, Self::Queen];
-
-    pub fn as_ascii(&self) -> char {
-        match self {
-            PromotableRole::Rook => 'r',
-            PromotableRole::Knight => 'n',
-            PromotableRole::Bishop => 'b',
-            PromotableRole::Queen => 'q',
-        }
-    }
-
-    pub fn from_ascii(c: char) -> Result<Self, ParseRoleError> {
-        match c {
-            'r' => Ok(PromotableRole::Rook),
-            'n' => Ok(PromotableRole::Knight),
-            'b' => Ok(PromotableRole::Bishop),
-            'q' => Ok(PromotableRole::Queen),
-            _ => Err(ParseRoleError(c.to_string())),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct ParseRoleError(String);
-
-impl Display for ParseRoleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "invalid role: {}", self.0)
-    }
-}
-impl Error for ParseRoleError {}
-
-impl FromStr for PromotableRole {
-    type Err = ParseRoleError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.len() != 1 {
-            return Err(ParseRoleError(s.to_string()));
-        };
-
-        Self::from_ascii(s.chars().nth(0).unwrap())
-    }
-}
-
-impl TryFrom<char> for PromotableRole {
-    type Error = ParseRoleError;
-    fn try_from(value: char) -> Result<Self, Self::Error> {
-        PromotableRole::from_ascii(value)
-    }
-}
-impl TryFrom<u8> for PromotableRole {
-    type Error = ParseRoleError;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        PromotableRole::from_ascii(value.into())
-    }
-}
-
 impl Role {
-    /// Returns ascii representation of role.
+    /// Returns the lowercase ASCII representation of the role.
     ///
     /// # Examples
     ///
@@ -100,19 +70,146 @@ impl Role {
             Role::King => 'k',
         }
     }
+
+    /// Parses a role from a lowercase ASCII character.
+    ///
+    /// Returns a [`ParseRoleError`] if the character does not correspond to a valid promotable role.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::Role;
+    /// assert_eq!(Role::from_ascii('n'), Ok(Role::Knight));
+    /// assert!(Role::from_ascii('p').is_err());
+    /// ```
+    pub fn from_ascii(c: char) -> Result<Self, ParseRoleError> {
+        match c {
+            'r' => Ok(Role::Rook),
+            'n' => Ok(Role::Knight),
+            'b' => Ok(Role::Bishop),
+            'q' => Ok(Role::Queen),
+            _ => Err(ParseRoleError(c.to_string())),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl TryFrom<char> for Role {
+    type Error = ParseRoleError;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        Role::from_ascii(value)
+    }
+}
+
+impl TryFrom<u8> for Role {
+    type Error = ParseRoleError;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Role::from_ascii(value.into())
+    }
+}
+
+impl PromotableRole {
+    /// An array of all possible promotable roles.
+    pub const ROLES: [PromotableRole; 4] = [Self::Rook, Self::Knight, Self::Bishop, Self::Queen];
+
+    /// Returns the lowercase ASCII representation of the promotable role.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::PromotableRole;
+    /// assert_eq!(PromotableRole::Queen.as_ascii(), 'q');
+    /// ```
+    pub fn as_ascii(&self) -> char {
+        match self {
+            PromotableRole::Rook => 'r',
+            PromotableRole::Knight => 'n',
+            PromotableRole::Bishop => 'b',
+            PromotableRole::Queen => 'q',
+        }
+    }
+
+    /// Parses a promotable role from a lowercase ASCII character.
+    ///
+    /// Returns a [`ParseRoleError`] if the character does not correspond to a valid promotable role.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::PromotableRole;
+    /// assert_eq!(PromotableRole::from_ascii('n'), Ok(PromotableRole::Knight));
+    /// assert!(PromotableRole::from_ascii('p').is_err());
+    /// ```
+    pub fn from_ascii(c: char) -> Result<Self, ParseRoleError> {
+        match c {
+            'r' => Ok(PromotableRole::Rook),
+            'n' => Ok(PromotableRole::Knight),
+            'b' => Ok(PromotableRole::Bishop),
+            'q' => Ok(PromotableRole::Queen),
+            _ => Err(ParseRoleError(c.to_string())),
+        }
+    }
+}
+
+impl TryFrom<char> for PromotableRole {
+    type Error = ParseRoleError;
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        PromotableRole::from_ascii(value)
+    }
+}
+
+impl TryFrom<u8> for PromotableRole {
+    type Error = ParseRoleError;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        PromotableRole::from_ascii(value.into())
+    }
+}
+
+/// Error returned when parsing a role from a string or character fails.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseRoleError(String);
+
+impl Display for ParseRoleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid role: {}", self.0)
+    }
+}
+impl Error for ParseRoleError {}
+
+impl FromStr for PromotableRole {
+    type Err = ParseRoleError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != 1 {
+            return Err(ParseRoleError(s.to_string()));
+        };
+
+        Self::from_ascii(s.chars().next().unwrap())
+    }
+}
+
+/// A container that stores a value of type `T` for each [`Role`].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ByRole<T> {
+    /// Value for [`Role::Pawn`].
     pub pawn: T,
+    /// Value for [`Role::Rook`].
     pub rook: T,
+    /// Value for [`Role::Knight`].
     pub knight: T,
+    /// Value for [`Role::Bishop`].
     pub bishop: T,
+    /// Value for [`Role::Queen`].
     pub queen: T,
+    /// Value for [`Role::King`].
     pub king: T,
 }
 
 impl<T> ByRole<T> {
+    /// Creates a new `ByRole` container with the given values.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::ByRole;
+    /// let container = ByRole::new(1, 3, 3, 5, 9, 0);
+    /// assert_eq!(container.pawn, 1);
+    /// assert_eq!(container.queen, 9);
+    /// ```
     pub fn new(pawn: T, knight: T, bishop: T, rook: T, queen: T, king: T) -> Self {
         Self {
             pawn,
@@ -123,6 +220,16 @@ impl<T> ByRole<T> {
             king,
         }
     }
+
+    /// Returns a reference to the value associated with the given [`Role`].
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::{ByRole, Role};
+    /// let container = ByRole::new(1, 2, 3, 4, 5, 6);
+    /// assert_eq!(*container.get(Role::Pawn), 1);
+    /// assert_eq!(*container.get(Role::King), 6);
+    /// ```
     pub fn get(&self, r: Role) -> &T {
         match r {
             Role::Pawn => &self.pawn,
@@ -134,7 +241,14 @@ impl<T> ByRole<T> {
         }
     }
 
-    /// Creates a new instance of `ByRole` with updated value.
+    /// Sets the value for the given [`Role`] and returns the updated container.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::{ByRole, Role};
+    /// let container = ByRole::new(0, 0, 0, 0, 0, 0).set(Role::Queen, 9);
+    /// assert_eq!(container.queen, 9);
+    /// ```
     #[must_use]
     pub fn set(self, r: Role, value: T) -> Self {
         match r {
@@ -165,7 +279,14 @@ impl<T> ByRole<T> {
         }
     }
 
-    /// Creates a new instance of `ByRole` by applying `f`.
+    /// Updates the value for the given [`Role`] using a function and returns the updated container.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::{ByRole, Role};
+    /// let container = ByRole::new(1, 1, 1, 1, 1, 1).update(Role::Rook, |v| v + 4);
+    /// assert_eq!(container.rook, 5);
+    /// ```
     #[must_use]
     pub fn update<F>(self, r: Role, f: F) -> Self
     where
