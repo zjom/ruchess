@@ -1,10 +1,10 @@
 use std::error::Error;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::str::FromStr;
 
 use crate::color::Color;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum File {
     A = 0,
@@ -49,9 +49,81 @@ impl File {
         // Safety: self is repr u8
         unsafe { std::mem::transmute(self) }
     }
+
+    pub fn as_char(&self) -> char {
+        match self {
+            File::A => 'A',
+            File::B => 'B',
+            File::C => 'C',
+            File::D => 'D',
+            File::E => 'E',
+            File::F => 'F',
+            File::G => 'G',
+            File::H => 'H',
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            File::A => "A",
+            File::B => "B",
+            File::C => "C",
+            File::D => "D",
+            File::E => "E",
+            File::F => "F",
+            File::G => "G",
+            File::H => "H",
+        }
+    }
+
+    pub fn from_byte(value: u8) -> Option<Self> {
+        match value {
+            b'A' | b'a' => Some(File::A),
+            b'B' | b'b' => Some(File::B),
+            b'C' | b'c' => Some(File::C),
+            b'D' | b'd' => Some(File::D),
+            b'E' | b'e' => Some(File::E),
+            b'F' | b'f' => Some(File::F),
+            b'G' | b'g' => Some(File::G),
+            b'H' | b'h' => Some(File::H),
+            _ => None,
+        }
+    }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+impl Debug for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "File={}", self.as_str())
+    }
+}
+
+impl Display for File {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "File={}", self.as_str())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParseFileError(pub String);
+impl Display for ParseFileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "invalid file: `{}`", self.0)
+    }
+}
+impl Error for ParseFileError {}
+impl FromStr for File {
+    type Err = ParseFileError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let p = s.as_bytes();
+        if p.len() != 1 {
+            return Err(ParseFileError(s.to_string()));
+        }
+
+        Self::from_byte(p[0]).ok_or(ParseFileError(s.to_string()))
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum Rank {
     First = 0,
@@ -94,6 +166,77 @@ impl Rank {
     pub const fn as_u8(self) -> u8 {
         // Safety: self is repr u8
         unsafe { std::mem::transmute(self) }
+    }
+    pub fn as_char(&self) -> char {
+        match self {
+            Rank::First => '1',
+            Rank::Second => '2',
+            Rank::Third => '3',
+            Rank::Fourth => '4',
+            Rank::Fifth => '5',
+            Rank::Sixth => '6',
+            Rank::Seventh => '7',
+            Rank::Eighth => '8',
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Rank::First => "1",
+            Rank::Second => "2",
+            Rank::Third => "3",
+            Rank::Fourth => "4",
+            Rank::Fifth => "5",
+            Rank::Sixth => "6",
+            Rank::Seventh => "7",
+            Rank::Eighth => "8",
+        }
+    }
+
+    pub fn from_byte(value: u8) -> Option<Self> {
+        match value {
+            b'1' => Some(Rank::First),
+            b'2' => Some(Rank::Second),
+            b'3' => Some(Rank::Third),
+            b'4' => Some(Rank::Fourth),
+            b'5' => Some(Rank::Fifth),
+            b'6' => Some(Rank::Sixth),
+            b'7' => Some(Rank::Seventh),
+            b'8' => Some(Rank::Eighth),
+            _ => None,
+        }
+    }
+}
+
+impl Debug for Rank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Rank={}", self.as_str())
+    }
+}
+
+impl Display for Rank {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Rank={}", self.as_str())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParseRankError(pub String);
+impl Display for ParseRankError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "invalid rank: `{}`", self.0)
+    }
+}
+impl Error for ParseRankError {}
+impl FromStr for Rank {
+    type Err = ParseRankError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let p = s.as_bytes();
+        if p.len() != 1 {
+            return Err(ParseRankError(s.to_string()));
+        }
+
+        Self::from_byte(p[0]).ok_or(ParseRankError(s.to_string()))
     }
 }
 
