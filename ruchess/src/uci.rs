@@ -99,6 +99,26 @@ impl Uci {
             None => format!("{}{}", self.orig, self.dest,),
         }
     }
+
+    fn from_str(s: &str) -> Result<Self, UciFormatError> {
+        match s.len() {
+            4 | 5 => {
+                let orig = Square::from_str(&s[0..2])?;
+                let dest = Square::from_str(&s[2..4])?;
+                let promotion = match s.len() {
+                    5 => Some(PromotableRole::from_str(&s[4..5])?),
+                    _ => None,
+                };
+
+                Ok(Self {
+                    orig,
+                    dest,
+                    promotion,
+                })
+            }
+            _ => Err(UciFormatError::InvalidLength(s.to_string())),
+        }
+    }
 }
 
 impl From<Move> for Uci {
@@ -117,23 +137,7 @@ impl FromStr for Uci {
     type Err = UciFormatError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.len() {
-            4 | 5 => {
-                let orig = Square::from_str(&s[0..2])?;
-                let dest = Square::from_str(&s[2..4])?;
-                let promotion = match s.len() {
-                    5 => Some(PromotableRole::from_str(&s[4..5])?),
-                    _ => None,
-                };
-
-                Ok(Self {
-                    orig,
-                    dest,
-                    promotion,
-                })
-            }
-            _ => Err(UciFormatError::InvalidLength(s.to_string())),
-        }
+        Self::from_str(s)
     }
 }
 
