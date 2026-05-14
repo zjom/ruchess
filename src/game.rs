@@ -25,6 +25,7 @@ use std::fmt::Display;
 use crate::{
     bitboard::Bitboard,
     board::Board,
+    color::Color,
     outcome::{DrawReason, Outcome},
     ply::Ply,
     position::Position,
@@ -87,6 +88,11 @@ impl Game {
                 outcome,
             }
         })
+    }
+
+    /// Returns `true` if it is white's turn to move.
+    pub fn is_white_turn(&self) -> bool {
+        self.position.color() == Color::White
     }
 
     /// Returns the terminal outcome of the game, if any has been reached.
