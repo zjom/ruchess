@@ -13,7 +13,7 @@ use crate::{
     uci::Uci,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Position {
     board: Board,
     history: History,

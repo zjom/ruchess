@@ -9,7 +9,7 @@ use crate::{
     unmoved_rooks::UnmovedRooks,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct History {
     pub last_move: Option<Uci>,
     pub castles: Castles,

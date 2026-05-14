@@ -6,7 +6,7 @@ use crate::{
     square::{ParseSquareError, Square},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Uci {
     pub orig: Square,
     pub dest: Square,

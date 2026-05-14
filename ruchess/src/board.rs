@@ -77,7 +77,7 @@ use crate::{
 };
 
 /// Represents a chess board with pieces tracked by bitboards.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Board {
     by_role: ByRole<Bitboard>,
     by_color: ByColor<Bitboard>,

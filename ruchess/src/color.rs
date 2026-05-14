@@ -146,7 +146,7 @@ impl Color {
 }
 
 /// A container that stores a value of type `T` for each [`Color`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ByColor<T> {
     /// The value associated with [`Color::White`].
     pub white: T,
