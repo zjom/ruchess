@@ -119,9 +119,10 @@ impl Position {
         });
         let captures = pawns
             .flat_map(|from| {
-                (ATTACKS.pawn_attacks(self.color, from) & self.board.bycolor(self.color))
-                    .into_iter()
-                    .map(move |to| (from, to))
+                (ATTACKS.pawn_attacks(self.color, from)
+                    & self.board.bycolor(self.color.opponent()))
+                .into_iter()
+                .map(move |to| (from, to))
             })
             .flat_map(|(from, to)| self.gen_pawn_moves(from, to, true));
 
@@ -177,8 +178,12 @@ impl Position {
 
     pub fn king_moves(&self) -> impl Iterator<Item = Move> {
         let orig = self.board.king(self.color);
+        // Remove our king for attack detection so sliders see through its current
+        // square — otherwise the king could slide along an attacker's ray.
+        let board_without_king = self.board.pop(orig).0;
+        let color = self.color;
         let moves = ATTACKS.king_attacks(orig).filter_map(move |dest| {
-            (!self.board.is_attacked(dest, self.color.opponent())).then_some(self.normal(
+            (!board_without_king.is_attacked(dest, color)).then_some(self.normal(
                 orig,
                 dest,
                 Role::King,
@@ -291,6 +296,9 @@ impl Position {
             color: self.color,
         };
         if self.board.is_occupied(dest) {
+            if self.board.color_at(dest) == Some(self.color) {
+                return None;
+            }
             let after = self.board.capture(orig, dest, None)?;
             Some(Move::capture(piece, orig, dest, dest, self.board, after))
         } else {
@@ -383,7 +391,9 @@ fn potential_enpassant_sq(last_move: Uci, board: Board, color: Color) -> Option<
             && piece.role == Role::Pawn
             && last_move.orig.ydist(last_move.dest) == 2
         {
-            last_move.dest.prev_rank(color)
+            // The target is the square the opponent's pawn passed over —
+            // one rank back from the opponent's perspective.
+            last_move.dest.prev_rank(piece.color)
         } else {
             None
         }
