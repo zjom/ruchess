@@ -205,7 +205,7 @@ impl Board {
             color: c,
         })
         .try_into()
-        .expect("only 1 king per color")
+        .expect("there must be exactly 1 king per color")
     }
 
     /// Returns a [`Bitboard`] of all white pieces.
