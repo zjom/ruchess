@@ -310,6 +310,7 @@ impl Position {
             .chain(self.bishop_moves())
             .chain(self.rook_moves())
             .chain(self.queen_moves())
+            .filter(|m| !m.after.is_check(self.color))
     }
 
     /// Returns `true` if at least one legal move exists from this position.
