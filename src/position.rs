@@ -1242,17 +1242,17 @@ mod proptests {
             prop_assert_eq!(a, b);
         }
 
-        // 7. valid_moves equals the disjoint union of per-piece-type generators.
+        // 7. valid_moves equals the disjoint union of per-piece-type generators filtered by `after.is_check`.
         #[test]
         fn partition_matches_per_piece_generators(p in random_position()) {
             let total = p.valid_moves().count();
-            let sum = p.pawn_moves().count()
-                + p.enpassant_moves().count()
-                + p.king_moves().count()
-                + p.knight_moves().count()
-                + p.bishop_moves().count()
-                + p.rook_moves().count()
-                + p.queen_moves().count();
+            let sum = p.pawn_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.enpassant_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.king_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.knight_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.bishop_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.rook_moves().filter(|m| !m.after.is_check(p.color)).count()
+                + p.queen_moves().filter(|m| !m.after.is_check(p.color)).count();
             prop_assert_eq!(total, sum);
         }
 
