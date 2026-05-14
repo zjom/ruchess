@@ -1,14 +1,9 @@
 # ruchess
 
-A rust chess library built around a persistent, functional API.
+a rust chess library
 
-Every state-changing operation — placing a piece, playing a move, updating castling rights — returns a new value
-instead of mutating in place.
+## at a glance
 
-
-## At a glance
-
-### Add to your project
 ```sh
 cargo add ruchess
 ```
@@ -21,7 +16,7 @@ ruchess = "0.0.1"
 ```
 
 
-### Usage
+### usage
 
 ```rust
 use ruchess::game::Game;
@@ -34,7 +29,7 @@ assert!(after_e4.position().board().is_occupied(square::E4));
 ```
                                                                                 
 
-## Module map
+## module map
                                                                                 
 - [`bitboard`] — 64-bit board representation and bitwise operations.
 - [`square`], [`rank`], [`file`] — coordinate primitives.
@@ -51,12 +46,12 @@ assert!(after_e4.position().board().is_occupied(square::E4));
 - [`game`] — high-level wrapper that tracks turns and outcomes.
 
 
-## Dependencies
+## dependencies
 
 - [lazy_static](https://docs.rs/lazy_static/latest/lazy_static/)
 
 
-## Roadmap
+## roadmap
 
 - [ ] benchmarks
     - will move to mutable api if benchmarks are very bad
