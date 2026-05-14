@@ -277,3 +277,343 @@ impl Display for Board {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    const ALL_ROLES: [Role; 6] = [
+        Role::Pawn,
+        Role::Rook,
+        Role::Knight,
+        Role::Bishop,
+        Role::Queen,
+        Role::King,
+    ];
+    const ALL_COLORS: [Color; 2] = [Color::White, Color::Black];
+
+    // ── Strategies ───────────────────────────────────────────────────────
+
+    fn sq() -> impl Strategy<Value = Square> {
+        (0u8..64).prop_map(Square)
+    }
+
+    fn role() -> impl Strategy<Value = Role> {
+        prop_oneof![
+            Just(Role::Pawn),
+            Just(Role::Rook),
+            Just(Role::Knight),
+            Just(Role::Bishop),
+            Just(Role::Queen),
+            Just(Role::King),
+        ]
+    }
+
+    fn color() -> impl Strategy<Value = Color> {
+        prop_oneof![Just(Color::White), Just(Color::Black)]
+    }
+
+    fn piece() -> impl Strategy<Value = Piece> {
+        (role(), color()).prop_map(|(role, color)| Piece { role, color })
+    }
+
+    /// Builds a board by replaying a random sequence of `set` operations on `EMPTY`.
+    ///
+    /// Operations may overlap, exercising the overwrite path of `set`.
+    fn random_board() -> impl Strategy<Value = Board> {
+        prop::collection::vec((sq(), piece()), 0..32).prop_map(|ops| {
+            let mut b = Board::EMPTY;
+            for (s, p) in ops {
+                b = b.set(s, p);
+            }
+            b
+        })
+    }
+
+    /// (board, orig ∈ occupied, dest ∈ empty). Avoids rejection by drawing
+    /// from the board's actual squares instead of `prop_assume!`-filtering.
+    fn board_and_move() -> impl Strategy<Value = (Board, Square, Square)> {
+        random_board()
+            .prop_filter("need ≥1 occupied and ≥1 empty square", |b| {
+                let n = b.occupied().0.count_ones();
+                n >= 1 && n < 64
+            })
+            .prop_flat_map(|b| {
+                let occ: Vec<Square> = b.occupied().into_iter().collect();
+                let emp: Vec<Square> = (!b.occupied()).into_iter().collect();
+                (Just(b), proptest::sample::select(occ), proptest::sample::select(emp))
+            })
+    }
+
+    /// (board, orig ∈ occupied, dest ∈ occupied, orig != dest).
+    fn board_and_two_occupied() -> impl Strategy<Value = (Board, Square, Square)> {
+        random_board()
+            .prop_filter("need ≥2 occupied squares", |b| b.occupied().0.count_ones() >= 2)
+            .prop_flat_map(|b| {
+                let occ: Vec<Square> = b.occupied().into_iter().collect();
+                (
+                    Just(b),
+                    proptest::sample::select(occ.clone()),
+                    proptest::sample::select(occ),
+                )
+            })
+            .prop_filter("orig != dest", |(_, o, d)| o != d)
+    }
+
+    /// (board, orig ∈ occupied, dest ∈ any, cap ∈ occupied) with cap distinct
+    /// from both orig and dest — the en-passant-like capture shape.
+    fn board_and_capture_target() -> impl Strategy<Value = (Board, Square, Square, Square)> {
+        random_board()
+            .prop_filter("need ≥2 occupied squares", |b| b.occupied().0.count_ones() >= 2)
+            .prop_flat_map(|b| {
+                let occ: Vec<Square> = b.occupied().into_iter().collect();
+                (
+                    Just(b),
+                    proptest::sample::select(occ.clone()),
+                    sq(),
+                    proptest::sample::select(occ),
+                )
+            })
+            .prop_filter("cap != orig and cap != dest", |(_, o, d, c)| c != o && c != d)
+    }
+
+    // ── Equivalence helpers (Board has no PartialEq) ─────────────────────
+
+    fn pieces_equiv(a: Piece, b: Piece) -> bool {
+        a.role == b.role && a.color == b.color
+    }
+
+    fn boards_equiv(a: &Board, b: &Board) -> bool {
+        if a.occupied() != b.occupied() {
+            return false;
+        }
+        for r in ALL_ROLES {
+            if a.byrole(r) != b.byrole(r) {
+                return false;
+            }
+        }
+        for c in ALL_COLORS {
+            if a.bycolor(c) != b.bycolor(c) {
+                return false;
+            }
+        }
+        true
+    }
+
+    // ── Invariant checker ────────────────────────────────────────────────
+
+    fn check_invariants(b: &Board) -> Result<(), TestCaseError> {
+        let white = b.bycolor(Color::White);
+        let black = b.bycolor(Color::Black);
+        let occ = b.occupied();
+
+        prop_assert_eq!(occ, white | black, "occupied != white | black");
+        prop_assert_eq!(white & black, Bitboard::EMPTY, "white and black overlap");
+
+        for (i, &r1) in ALL_ROLES.iter().enumerate() {
+            for &r2 in &ALL_ROLES[i + 1..] {
+                prop_assert_eq!(
+                    b.byrole(r1) & b.byrole(r2),
+                    Bitboard::EMPTY,
+                    "roles overlap"
+                );
+            }
+        }
+
+        let mut role_union = Bitboard::EMPTY;
+        for &r in &ALL_ROLES {
+            role_union |= b.byrole(r);
+        }
+        prop_assert_eq!(role_union, occ, "union of role bitboards != occupied");
+
+        for i in 0u8..64 {
+            let s = Square(i);
+            prop_assert_eq!(
+                b.piece_at(s).is_some(),
+                b.is_occupied(s),
+                "piece_at vs is_occupied disagree"
+            );
+        }
+
+        let grid = b.into_grid();
+        for i in 0u8..64 {
+            let s = Square(i);
+            let row = (i / 8) as usize;
+            let col = (i % 8) as usize;
+            match (b.piece_at(s), grid[row][col]) {
+                (None, None) => {}
+                (Some(p1), Some(p2)) => {
+                    prop_assert!(pieces_equiv(p1, p2), "grid vs piece_at piece mismatch")
+                }
+                _ => prop_assert!(false, "grid vs piece_at presence mismatch"),
+            }
+        }
+        Ok(())
+    }
+
+    // ── Layer 1: invariants on hand-built boards ─────────────────────────
+
+    #[test]
+    fn invariants_for_empty() {
+        check_invariants(&Board::EMPTY).unwrap();
+    }
+
+    #[test]
+    fn invariants_for_starting_position() {
+        check_invariants(&Board::new()).unwrap();
+    }
+
+    proptest! {
+        // ── Layer 1: invariants under random construction & mutation ────
+
+        #[test]
+        fn invariants_for_random_board(b in random_board()) {
+            check_invariants(&b)?;
+        }
+
+        #[test]
+        fn invariants_after_set(b in random_board(), s in sq(), p in piece()) {
+            check_invariants(&b.set(s, p))?;
+        }
+
+        #[test]
+        fn invariants_after_pop(b in random_board(), s in sq()) {
+            let (after, _) = b.pop(s);
+            check_invariants(&after)?;
+        }
+
+        #[test]
+        fn invariants_after_mve(b in random_board(), orig in sq(), dest in sq()) {
+            if let Some(after) = b.mve(orig, dest) {
+                check_invariants(&after)?;
+            }
+        }
+
+        #[test]
+        fn invariants_after_capture_no_target(
+            b in random_board(), orig in sq(), dest in sq(),
+        ) {
+            if let Some(after) = b.capture(orig, dest, None) {
+                check_invariants(&after)?;
+            }
+        }
+
+        #[test]
+        fn invariants_after_capture_with_target(
+            b in random_board(), orig in sq(), dest in sq(), cap in sq(),
+        ) {
+            if let Some(after) = b.capture(orig, dest, Some(cap)) {
+                check_invariants(&after)?;
+            }
+        }
+
+        // ── Layer 2: round-trips ────────────────────────────────────────
+
+        #[test]
+        fn empty_set_then_pop_returns_piece(s in sq(), p in piece()) {
+            let (after, popped) = Board::EMPTY.set(s, p).pop(s);
+            prop_assert!(boards_equiv(&after, &Board::EMPTY));
+            let popped = popped.expect("pop should return the placed piece");
+            prop_assert!(pieces_equiv(popped, p));
+        }
+
+        #[test]
+        fn set_then_piece_at_returns_piece(b in random_board(), s in sq(), p in piece()) {
+            let after = b.set(s, p);
+            let got = after.piece_at(s).expect("must have piece after set");
+            prop_assert!(pieces_equiv(got, p));
+            prop_assert!(after.is_occupied(s));
+        }
+
+        #[test]
+        fn set_is_idempotent(b in random_board(), s in sq(), p in piece()) {
+            let once = b.set(s, p);
+            let twice = once.set(s, p);
+            prop_assert!(boards_equiv(&once, &twice));
+        }
+
+        #[test]
+        fn pop_then_pop_yields_none(b in random_board(), s in sq()) {
+            let (after, _) = b.pop(s);
+            let (_, second) = after.pop(s);
+            prop_assert!(second.is_none());
+            prop_assert!(!after.is_occupied(s));
+        }
+
+        #[test]
+        fn pop_empty_square_is_noop(b in random_board(), s in sq()) {
+            prop_assume!(!b.is_occupied(s));
+            let (after, popped) = b.pop(s);
+            prop_assert!(popped.is_none());
+            prop_assert!(boards_equiv(&b, &after));
+        }
+
+        #[test]
+        fn pop_then_set_back_restores(b in random_board(), s in sq()) {
+            prop_assume!(b.is_occupied(s));
+            let (after_pop, popped) = b.pop(s);
+            let p = popped.unwrap();
+            let restored = after_pop.set(s, p);
+            prop_assert!(boards_equiv(&b, &restored));
+        }
+
+        #[test]
+        fn mve_succeeds_iff_orig_occupied_and_dest_empty(
+            b in random_board(), orig in sq(), dest in sq(),
+        ) {
+            let ok = b.is_occupied(orig) && !b.is_occupied(dest);
+            prop_assert_eq!(b.mve(orig, dest).is_some(), ok);
+        }
+
+        #[test]
+        fn mve_moves_piece_and_preserves_count((b, orig, dest) in board_and_move()) {
+            let original = b.piece_at(orig).unwrap();
+            let after = b.mve(orig, dest).unwrap();
+
+            prop_assert!(!after.is_occupied(orig));
+            prop_assert!(after.is_occupied(dest));
+            let landed = after.piece_at(dest).unwrap();
+            prop_assert!(pieces_equiv(landed, original));
+            prop_assert_eq!(b.occupied().0.count_ones(), after.occupied().0.count_ones());
+        }
+
+        #[test]
+        fn mve_round_trip((b, orig, dest) in board_and_move()) {
+            let after = b.mve(orig, dest).unwrap();
+            let restored = after.mve(dest, orig).unwrap();
+            prop_assert!(boards_equiv(&b, &restored));
+        }
+
+        #[test]
+        fn capture_none_matches_mve((b, orig, dest) in board_and_move()) {
+            let mved = b.mve(orig, dest).unwrap();
+            let cap = b.capture(orig, dest, None).unwrap();
+            prop_assert!(boards_equiv(&mved, &cap));
+        }
+
+        #[test]
+        fn capture_overwrites_dest((b, orig, dest) in board_and_two_occupied()) {
+            let original = b.piece_at(orig).unwrap();
+            let after = b.capture(orig, dest, None).unwrap();
+            prop_assert!(!after.is_occupied(orig));
+            prop_assert!(after.is_occupied(dest));
+            let landed = after.piece_at(dest).unwrap();
+            prop_assert!(pieces_equiv(landed, original));
+            // Captured one piece: count drops by exactly one.
+            prop_assert_eq!(
+                b.occupied().0.count_ones(),
+                after.occupied().0.count_ones() + 1
+            );
+        }
+
+        #[test]
+        fn capture_with_target_removes_captured(
+            (b, orig, dest, cap) in board_and_capture_target(),
+        ) {
+            let after = b.capture(orig, dest, Some(cap)).unwrap();
+            prop_assert!(!after.is_occupied(cap));
+            prop_assert!(after.is_occupied(dest));
+        }
+    }
+}
