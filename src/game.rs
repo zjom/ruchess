@@ -29,7 +29,7 @@ use crate::{
     outcome::{DrawReason, Outcome},
     ply::Ply,
     position::Position,
-    square::Square,
+    uci::Uci,
 };
 
 /// A complete chess game: the current [`Position`], the turn counter, and
@@ -77,17 +77,17 @@ impl Game {
     /// // Illegal move → None.
     /// assert!(Game::new().mve(square::E2, square::E5).is_none());
     /// ```
-    // TODO: Accept optional promotion square, maybe accept &Uci
-    // Enforce promotion square when pawn promoting
-    pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
-        self.position.mve(orig, dest).map(|position| {
-            let outcome = eval(&position);
-            Self {
-                position,
-                turn: self.turn.incr(),
-                outcome,
-            }
-        })
+    pub fn mve(self, uci: &Uci) -> Option<Self> {
+        self.position
+            .mve(uci.orig, uci.dest, uci.promotion)
+            .map(|position| {
+                let outcome = eval(&position);
+                Self {
+                    position,
+                    turn: self.turn.incr(),
+                    outcome,
+                }
+            })
     }
 
     /// Returns `true` if it is white's turn to move.
