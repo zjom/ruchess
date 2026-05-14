@@ -349,7 +349,41 @@ fn render_info(app: &App, area: Rect, buf: &mut Buffer) {
     )));
     lines.push(Line::from(format!(" {}", app.status)));
 
+    let mut move_lines: Vec<Line> = vec![Line::from(Span::styled(
+        "Legal Moves",
+        Style::new().add_modifier(Modifier::UNDERLINED),
+    ))];
+    // Group legal moves into columns with a max height of 40 rows
+    let mut move_rows: Vec<String> = Vec::new();
+    let mut valid_moves: Vec<_> = app
+        .game
+        .position()
+        .valid_moves()
+        .map(|m| format!("{}{}", m.orig, m.dest))
+        .collect();
+    valid_moves.sort_unstable();
+
+    valid_moves.iter().enumerate().for_each(|(i, mv_str)| {
+        let row_idx = i % 40;
+
+        if row_idx >= move_rows.len() {
+            // Initialize the row with a leading space and a fixed width
+            move_rows.push(format!(" {:<6}", mv_str));
+        } else {
+            // Append subsequent moves in the same row with a fixed width
+            move_rows[row_idx].push_str(&format!("{:<6}", mv_str));
+        }
+    });
+    move_rows
+        .iter()
+        .for_each(|s| move_lines.push(Line::from(s.as_str())));
+
+    let chunks = Layout::horizontal(Constraint::from_ratios([(2, 3), (1, 3)])).split(area);
     Paragraph::new(lines)
         .block(Block::new().borders(Borders::LEFT))
-        .render(area, buf);
+        .render(chunks[0], buf);
+
+    Paragraph::new(move_lines)
+        .block(Block::new().borders(Borders::LEFT))
+        .render(chunks[1], buf);
 }
