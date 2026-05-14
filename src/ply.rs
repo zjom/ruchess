@@ -11,7 +11,7 @@ use crate::color::Color;
 ///
 /// Even values correspond to White to move; odd values to Black to move.
 /// A 6-ply search depth, for example, means three full moves.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ply(u32);
 
 impl Ply {
