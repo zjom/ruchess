@@ -4,6 +4,7 @@ A rust chess library built around an persistent, functional API.
 
 Every state-changing operation — placing a piece, playing a move, updating castling rights — returns a new value
 instead of mutating in place.
+
                                                                                 
 ## At a glance
 
@@ -42,3 +43,11 @@ assert!(after_e4.position().board().is_occupied(square::E4));
 ## Dependencies
 
 - [lazy_static](https://docs.rs/lazy_static/latest/lazy_static/)
+
+
+## Roadmap
+
+- [ ] benchmarks
+    - will move to mutable api if benchmarks are very bad
+- [ ] fen parsing
+- [ ] real uci support
