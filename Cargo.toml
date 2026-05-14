@@ -5,6 +5,8 @@ edition = "2024"
 author = "zjom"
 license = "Unlicense"
 description = "rust chess"
+documentation = "https://docs.rs/ruchess"
+repository = "https://github.com/zjom/ruchess"
 
 [dependencies]
 lazy_static = "1.5.0"
