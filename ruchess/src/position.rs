@@ -209,6 +209,7 @@ impl Position {
     /// // Illegal move → None.
     /// assert!(Position::new().mve(square::E2, square::E5).is_none());
     /// ```
+    // TODO: Accept optional promotion square, maybe accept &Uci
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         let mve = self
             .valid_moves()

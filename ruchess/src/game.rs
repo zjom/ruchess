@@ -76,6 +76,8 @@ impl Game {
     /// // Illegal move → None.
     /// assert!(Game::new().mve(square::E2, square::E5).is_none());
     /// ```
+    // TODO: Accept optional promotion square, maybe accept &Uci
+    // Enforce promotion square when pawn promoting
     pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
         self.position.mve(orig, dest).map(|position| {
             let outcome = eval(&position);
