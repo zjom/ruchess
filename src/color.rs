@@ -20,7 +20,9 @@
 //! assert_eq!(side.back_rank(), ruchess::rank::Rank::First);
 //! ```
 
+use std::error::Error;
 use std::fmt::Display;
+use std::str::FromStr;
 
 use crate::rank::Rank;
 use crate::side::Side;
@@ -144,6 +146,27 @@ impl Color {
         }
     }
 }
+
+impl FromStr for Color {
+    type Err = ParseColorError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let lowered = s.to_lowercase();
+        match lowered.as_str() {
+            "w" | "white" => Ok(Self::White),
+            "b" | "black" => Ok(Self::Black),
+            _ => Err(ParseColorError(lowered)),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct ParseColorError(String);
+impl Display for ParseColorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid color string: {}", self.0)
+    }
+}
+impl Error for ParseColorError {}
 
 /// A container that stores a value of type `T` for each [`Color`].
 #[derive(Debug, Clone, Copy, PartialEq)]
