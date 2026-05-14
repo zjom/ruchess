@@ -35,10 +35,10 @@ impl Game {
                 Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
             } else if position.history().half_moves() >= 50 {
                 Some(Outcome::Draw(DrawReason::FiftyMoveRule))
-            } else if position.is_check() && !has_moves {
+            } else if !has_moves && position.is_check() {
                 let winner = position.color().opponent();
                 Some(Outcome::Win(winner))
-            } else if !has_moves && !position.clone().has_moves() {
+            } else if !has_moves {
                 Some(Outcome::Draw(DrawReason::Stalemate))
             } else {
                 None
