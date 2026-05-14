@@ -209,11 +209,15 @@ impl Position {
     /// // Illegal move → None.
     /// assert!(Position::new().mve(square::E2, square::E5).is_none());
     /// ```
-    // TODO: Accept optional promotion square, maybe accept &Uci
-    pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
+    pub fn mve(
+        self,
+        orig: Square,
+        dest: Square,
+        promotion: Option<PromotableRole>,
+    ) -> Option<Self> {
         let mve = self
             .valid_moves()
-            .find(|m| m.orig == orig && m.dest == dest)?;
+            .find(|m| m.orig == orig && m.dest == dest && m.promotion == promotion)?;
 
         let history = self.history.clone().update(&self, &mve);
         Some(Self {
@@ -794,13 +798,13 @@ mod tests {
 
     #[test]
     fn mve_flips_color() {
-        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        let after = Position::new().mve(square::E2, square::E4, None).unwrap();
         assert_eq!(after.color(), Color::Black);
     }
 
     #[test]
     fn mve_applies_move_to_board() {
-        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        let after = Position::new().mve(square::E2, square::E4, None).unwrap();
         assert!(!after.board().is_occupied(square::E2));
         assert_eq!(
             after.board().piece_at(square::E4),
@@ -811,17 +815,17 @@ mod tests {
     #[test]
     fn mve_invalid_returns_none() {
         // E2 → E5 is not a legal pawn move (only 1 or 2 squares forward).
-        assert!(Position::new().mve(square::E2, square::E5).is_none());
+        assert!(Position::new().mve(square::E2, square::E5, None).is_none());
     }
 
     #[test]
     fn mve_from_empty_square_returns_none() {
-        assert!(Position::new().mve(square::E4, square::E5).is_none());
+        assert!(Position::new().mve(square::E4, square::E5, None).is_none());
     }
 
     #[test]
     fn mve_updates_history_last_move() {
-        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        let after = Position::new().mve(square::E2, square::E4, None).unwrap();
         let lm = after.history().last_move.expect("last_move set after mve");
         assert_eq!(lm.orig, square::E2);
         assert_eq!(lm.dest, square::E4);
@@ -1277,7 +1281,7 @@ mod proptests {
         #[test]
         fn mve_with_listed_move_works(p in random_position()) {
             if let Some(m) = p.valid_moves().next() {
-                let next = p.clone().mve(m.orig, m.dest).expect("listed move must succeed");
+                let next = p.clone().mve(m.orig, m.dest,None).expect("listed move must succeed");
                 prop_assert_eq!(next.color(), p.color().opponent());
                 if m.promotion.is_none() {
                     prop_assert_eq!(*next.board(), m.after);
