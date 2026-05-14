@@ -1,21 +1,63 @@
+//! # Precomputed Attack Tables
+//!
+//! Move generation hangs off [`ATTACKS`], a single lazily-initialized table
+//! holding every piece's attack pattern from every square. For knights,
+//! kings, and pawns the table is a plain array; for sliding pieces (rooks,
+//! bishops, queens) it uses the classic **magic bitboard** technique: the
+//! relevant-blocker mask is multiplied by a magic constant (see
+//! [`Magic`](crate::magic::Magic)) to produce an index into a shared array
+//! of pre-baked attack sets.
+//!
+//! The table is ~780 KB. Initialization runs once on first access and is
+//! boxed onto the heap to avoid blowing the default test-thread stack.
+//!
+//! ## Example
+//! ```
+//! # use ruchess::attacks::ATTACKS;
+//! # use ruchess::bitboard::Bitboard;
+//! # use ruchess::square;
+//! // A knight on the corner attacks exactly two squares.
+//! let bb = ATTACKS.knight_attacks(square::A1);
+//! assert_eq!(bb.0.count_ones(), 2);
+//! ```
+
 use crate::{bitboard::Bitboard, color::Color, magic::Magic, square::Square};
 use lazy_static::lazy_static;
 
 lazy_static! {
+    /// Global, lazily-initialized attack tables.
+    ///
+    /// Boxed onto the heap (around 780 KB) and initialized on first access.
     pub static ref ATTACKS: Box<Attacks> = Attacks::new();
 }
 
+/// Bundle of precomputed attack tables for every piece type.
+///
+/// Prefer [`ATTACKS`] over constructing this directly — there is no reason
+/// to have more than one copy.
 #[derive(Clone, Copy)]
 pub struct Attacks {
+    /// `ranks[i]` is the 8-bit mask for rank `i`, used during initialization.
     pub ranks: [u64; 8],
+    /// `files[i]` is the 8-bit mask for file `i`, used during initialization.
     pub files: [u64; 8],
+    /// `between[a][b]` is the set of squares strictly between `a` and `b`
+    /// along a rook or bishop ray, or `0` if they are not aligned.
     pub between: [[u64; 64]; 64],
+    /// `rays[a][b]` is the full line through `a` and `b` (rook or bishop
+    /// ray, including both endpoints), or `0` if not aligned.
     pub rays: [[u64; 64]; 64],
 
+    /// Shared backing array for sliding-piece magics. Indexed via
+    /// [`Magic::rook_index`] / [`Magic::bishop_index`].
     pub attacks: [u64; 88772],
+    /// `knight_attacks[sq]` is the attack set of a knight on `sq`.
     pub knight_attacks: [u64; 64],
+    /// `king_attacks[sq]` is the attack set of a king on `sq`.
     pub king_attacks: [u64; 64],
+    /// `white_pawn_attacks[sq]` is the diagonal attack set of a white pawn on `sq`.
     pub white_pawn_attacks: [u64; 64],
+    /// `black_pawn_attacks[sq]` is the diagonal attack set of a black pawn on `sq`.
     pub black_pawn_attacks: [u64; 64],
 }
 
@@ -30,16 +72,22 @@ impl Attacks {
         a
     }
 
+    /// Returns the bitboard of squares a rook on `sq` attacks given the
+    /// `occupied` bitboard of blockers.
     pub fn rook_attacks(&self, sq: Square, occupied: Bitboard) -> Bitboard {
         let m = &Magic::ROOK[sq.0 as usize];
         Bitboard(self.attacks[m.rook_index(occupied.0)])
     }
 
+    /// Returns the bitboard of squares a bishop on `sq` attacks given the
+    /// `occupied` bitboard of blockers.
     pub fn bishop_attacks(&self, sq: Square, occupied: Bitboard) -> Bitboard {
         let m = &Magic::BISHOP[sq.0 as usize];
         Bitboard(self.attacks[m.bishop_index(occupied.0)])
     }
 
+    /// Returns the squares a pawn of the given `color` on `sq` attacks
+    /// (diagonally forward). Pushes are not included.
     pub fn pawn_attacks(&self, color: Color, sq: Square) -> Bitboard {
         Bitboard(match color {
             Color::White => self.white_pawn_attacks[sq.0 as usize],
@@ -47,10 +95,12 @@ impl Attacks {
         })
     }
 
+    /// Returns the squares a king on `sq` attacks (the eight neighbors).
     pub fn king_attacks(&self, sq: Square) -> Bitboard {
         Bitboard(self.king_attacks[sq.0 as usize])
     }
 
+    /// Returns the squares a knight on `sq` attacks.
     pub fn knight_attacks(&self, sq: Square) -> Bitboard {
         Bitboard(self.knight_attacks[sq.0 as usize])
     }
@@ -115,12 +165,18 @@ const KING_DELTAS: [i32; 8] = [1, 7, 8, 9, -1, -7, -8, -9];
 const WHITE_PAWN_DELTAS: [i32; 2] = [7, 9];
 const BLACK_PAWN_DELTAS: [i32; 2] = [-7, -9];
 
+/// Chebyshev distance between two square indices, treating off-board
+/// indices as if they were on an infinite grid. Used to detect when a
+/// `delta` step has wrapped around the board edge.
 fn distance(a: i32, b: i32) -> i32 {
     let file = |s: i32| s & 7;
     let rank = |s: i32| s >> 3;
     (file(a) - file(b)).abs().max((rank(a) - rank(b)).abs())
 }
 
+/// Computes the set of squares reachable from `square` by sliding along
+/// each of `deltas`, stopping when an `occupied` bit is hit or the slide
+/// would wrap off the board.
 fn sliding_attacks(square: i32, occupied: u64, deltas: &[i32]) -> u64 {
     let mut attacks = 0u64;
     for &delta in deltas {
@@ -140,6 +196,9 @@ fn sliding_attacks(square: i32, occupied: u64, deltas: &[i32]) -> u64 {
     attacks
 }
 
+/// Fills the shared `attacks` array for one (square, magic) pair by
+/// enumerating every subset of `magic.mask`, computing the sliding attack
+/// for that occupancy, and storing it at the magic-indexed slot.
 fn init_magics(attacks: &mut [u64; 88772], square: i32, magic: &Magic, shift: u32, deltas: &[i32]) {
     let mut subset = 0u64;
     loop {
