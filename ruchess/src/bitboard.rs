@@ -1,5 +1,112 @@
+//! # Bitboards
+//!
+//! A [`Bitboard`] is the fundamental data structure used in `ruchess` to represent the state of
+//! the board. It uses a single `u64` where each of the 64 bits represents a specific square
+//! on the chess board.
+//!
+//! ### Why Bitboards?
+//! Bitboards are the industry standard for high-performance chess engines because they allow:
+//! * **Parallelism:** Perform operations on all 64 squares simultaneously using bitwise logic.
+//! * **Efficiency:** Extremely low memory footprint and high cache locality.
+//! * **Speed:** Modern CPUs can execute bitwise operations (AND, OR, XOR) in a single cycle.
+//!
+//!
+//!
+//! ---
+//!
+//! ## Board Mapping: LERF
+//!
+//! `ruchess` employs the **Little-Endian Rank-File (LERF)** mapping convention.
+//! In this system:
+//! * **Bit 0** (LSB) represents **A1**.
+//! * **Bit 63** (MSB) represents **H8**.
+//! * Bits progress **File-wise** (A to H) and then **Rank-wise** (1 to 8).
+//!
+//! ### Mapping Table
+//!
+//! ```text
+//!   8 | 56 57 58 59 60 61 62 63
+//!   7 | 48 49 50 51 52 53 54 55
+//!   6 | 40 41 42 43 44 45 46 47
+//!   5 | 32 33 34 35 36 37 38 39
+//!   4 | 24 25 26 27 28 29 30 31
+//!   3 | 16 17 18 19 20 21 22 23
+//!   2 |  8  9 10 11 12 13 14 15
+//!   1 |  0  1  2  3  4  5  6  7
+//!     +------------------------
+//!        A  B  C  D  E  F  G  H
+//! ```
+//!
+//! ---
+//!
+//! ## Flexible Operations
+//!
+//! As a convenience, [`Bitboard`] implements `std::ops` for any type `T` that implements
+//! `Into<Bitboard>`. This allows you to mix and match types like [`Square`], [`Rank`],
+//! or [`File`] directly in bitwise expressions.
+//!
+//! ### Example: Masking a Rank
+//! ```
+//! # use ruchess::bitboard::Bitboard;
+//! # use ruchess::square::{self, Rank};
+//! let b = Bitboard::EMPTY;
+//!
+//! // You can OR a Square or a Rank directly into a Bitboard
+//! let rank_4 = b | Rank::Fourth;
+//! let target = rank_4 | square::A1;
+//!
+//! assert!(target.is_set(square::A4)); // Part of Rank 4
+//! assert!(target.is_set(square::A1)); // Added explicitly
+//! ```
+//!
+//! ## Iteration
+//! [`Bitboard`] implements [`Iterator`], allowing you to easily loop over all **occupied**
+//! squares. The iterator is highly optimized, using the `BLSR` (Reset Lowest Set Bit)
+//! pattern to clear bits as it yields them.
+//!
+//! ```
+//! # use ruchess::bitboard::Bitboard;
+//! # use ruchess::square;
+//! let bb = Bitboard::from(square::A1) | Bitboard::from(square::H8);
+//!
+//! for square in bb {
+//!     println!("Occupied square: {:?}", square);
+//! }
+//! ```
+
 use crate::square::{File, Rank, Square};
 
+/// A 64-bit representation of the chess board.
+///
+/// [`Bitboard`] is the core, irreducible data structure in `ruchess`.
+/// Bitboards are used to keep track of which squares in a given position are occupied.
+///
+/// [`Bitboard`] uses a **Little-Endian Rank-File (LERF)** mapping, where the least significant bit (bit 0) represents the square `A1`, and the most significant bit (bit 63) represents `H8`.
+///
+/// The bits are ordered first by rank (1-8) and then by file (A-H).
+///
+/// ### Mapping Table
+///
+/// ```text
+///   8 | 56 57 58 59 60 61 62 63
+///   7 | 48 49 50 51 52 53 54 55
+///   6 | 40 41 42 43 44 45 46 47
+///   5 | 32 33 34 35 36 37 38 39
+///   4 | 24 25 26 27 28 29 30 31
+///   3 | 16 17 18 19 20 21 22 23
+///   2 |  8  9 10 11 12 13 14 15
+///   1 |  0  1  2  3  4  5  6  7
+///     +------------------------
+///        A  B  C  D  E  F  G  H
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use ruchess::bitboard::Bitboard;
+/// # use ruchess::square;
+/// assert!(Bitboard::new(1).is_set(square::A1));
+/// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Bitboard(pub u64);
 
@@ -9,14 +116,33 @@ impl Bitboard {
     pub const LIGHT: Bitboard = Bitboard(0x55AA_55AA_55AA_55AA);
     pub const DARK: Bitboard = Bitboard(0xAA55_AA55_AA55_AA55);
 
+    /// Constructs a new [`Bitboard`] from `value`.
+    ///
+    /// See [`Bitboard`]
     pub const fn new(value: u64) -> Self {
         Self(value)
     }
 
+    /// Returns `true` if all bits are "off".
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// assert_eq!(Bitboard::new(0).is_empty(), true);
+    /// assert_eq!(Bitboard::new(1).is_empty(), false);
     pub fn is_empty(self) -> bool {
         self == Self::EMPTY
     }
 
+    /// Returns `true` if any bits are "on".
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// assert_eq!(Bitboard::new(0).is_non_empty(), false);
+    /// assert_eq!(Bitboard::new(1).is_non_empty(), true);
     pub fn is_non_empty(self) -> bool {
         self != Self::EMPTY
     }
@@ -99,7 +225,6 @@ impl Iterator for Bitboard {
 
         // Find the index of the least significant 1-bit (the first occupied square)
         let square_index = self.0.trailing_zeros() as u8;
-
         // Clear the least significant 1-bit using a standard bit-manipulation trick
         self.0 &= self.0 - 1;
 
