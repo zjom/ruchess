@@ -40,9 +40,9 @@ impl Square {
     /// assert_eq!(Square::new(0), square::A1);
     /// assert_eq!(Square::new(63), square::H8);
     /// ```
-    pub const fn new(idx: u32) -> Square {
+    pub const fn new(idx: u8) -> Square {
         assert!(idx < 64);
-        Square(idx as u8)
+        Square(idx)
     }
 
     /// Constructs a [`Square`] from a [`File`] and [`Rank`].
@@ -55,7 +55,7 @@ impl Square {
     /// assert_eq!(Square::from_file_and_rank(File::E, Rank::Fourth), square::E4);
     /// ```
     pub const fn from_file_and_rank(file: File, rank: Rank) -> Self {
-        Self::new((rank.as_u8() * 8 + file.as_u8()) as u32)
+        Self::new(rank.as_u8() * 8 + file.as_u8())
     }
 
     /// Returns the [`Rank`] of this square.
