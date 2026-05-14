@@ -396,252 +396,594 @@ impl Default for Position {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::square::{A1, A2, A3, A4, B7, D5, E4, E5};
-//
-//     fn board_with(pieces: &[(Square, Piece)]) -> Board {
-//         pieces
-//             .iter()
-//             .fold(Board::EMPTY, |b, (sq, p)| b.set(*sq, *p))
-//     }
-//
-//     // ── Move::normal ─────────────────────────────────────────────────────────
-//
-//     #[test]
-//     fn normal_move_onto_empty_square_succeeds() {
-//         let m = Move::normal(Board::new(), A2, A3, false, Color::White, Role::Pawn)
-//             .expect("a2-a3 should be legal from the starting position");
-//
-//         assert_eq!(m.orig, A2);
-//         assert_eq!(m.dest, A3);
-//         assert!(m.capture.is_none());
-//         assert!(m.promotion.is_none());
-//         assert!(m.castle.is_none());
-//         assert!(m.enpassant.is_none());
-//
-//         // The piece left its origin and now lives on the destination.
-//         assert!(!m.after.is_occupied(A2));
-//         let landed = m.after.piece_at(A3).expect("pawn should be on a3");
-//         assert_eq!(landed.role, Role::Pawn);
-//         assert_eq!(landed.color, Color::White);
-//     }
-//
-//     #[test]
-//     fn normal_non_capture_onto_occupied_square_returns_none() {
-//         // a1 holds the white rook; trying to slide it onto its own pawn on a2
-//         // without `is_capture` must fail.
-//         assert!(Move::normal(Board::new(), A1, A2, false, Color::White, Role::Rook).is_none());
-//     }
-//
-//     #[test]
-//     fn normal_from_empty_origin_returns_none() {
-//         let b = Board::EMPTY;
-//         assert!(Move::normal(b, A1, A2, false, Color::White, Role::Rook).is_none());
-//     }
-//
-//     #[test]
-//     fn normal_capture_records_target_square_and_replaces_piece() {
-//         let b = board_with(&[
-//             (
-//                 E4,
-//                 Piece {
-//                     role: Role::Knight,
-//                     color: Color::White,
-//                 },
-//             ),
-//             (
-//                 D5,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::Black,
-//                 },
-//             ),
-//         ]);
-//
-//         let m = Move::normal(b, E4, D5, true, Color::White, Role::Knight)
-//             .expect("knight should be able to capture on d5");
-//
-//         assert_eq!(m.capture, Some(D5));
-//         assert!(!m.after.is_occupied(E4));
-//         let landed = m.after.piece_at(D5).expect("knight should be on d5");
-//         assert_eq!(landed.role, Role::Knight);
-//         assert_eq!(landed.color, Color::White);
-//     }
-//
-//     // ── pawn_moves ───────────────────────────────────────────────────────────
-//
-//     #[test]
-//     fn pawn_moves_from_starting_position_white() {
-//         let moves = pawn_moves(Board::new(), Color::White);
-//         // 8 single pushes + 8 double pushes, no captures available.
-//         assert_eq!(moves.len(), 16);
-//         assert!(moves.iter().all(|m| m.capture.is_none()));
-//         assert!(moves.iter().all(|m| m.promotion.is_none()));
-//     }
-//
-//     #[test]
-//     fn pawn_moves_from_starting_position_black() {
-//         let moves = pawn_moves(Board::new(), Color::Black);
-//         assert_eq!(moves.len(), 16);
-//         assert!(moves.iter().all(|m| m.capture.is_none()));
-//     }
-//
-//     #[test]
-//     fn pawn_double_push_blocked_when_intermediate_square_occupied() {
-//         // A friendly piece on a3 blocks both a2-a3 and the a2-a4 double push.
-//         let b = Board::new().set(
-//             A3,
-//             Piece {
-//                 role: Role::Knight,
-//                 color: Color::White,
-//             },
-//         );
-//
-//         let from_a2: Vec<_> = pawn_moves(b, Color::White)
-//             .into_iter()
-//             .filter(|m| m.orig == A2)
-//             .collect();
-//         assert!(from_a2.is_empty());
-//     }
-//
-//     #[test]
-//     fn pawn_double_push_blocked_when_target_square_occupied() {
-//         // An enemy piece on a4 leaves the single push open but cancels the double.
-//         let b = Board::new().set(
-//             A4,
-//             Piece {
-//                 role: Role::Pawn,
-//                 color: Color::Black,
-//             },
-//         );
-//
-//         let from_a2: Vec<_> = pawn_moves(b, Color::White)
-//             .into_iter()
-//             .filter(|m| m.orig == A2)
-//             .collect();
-//         assert_eq!(from_a2.len(), 1);
-//         assert_eq!(from_a2[0].dest, A3);
-//         assert!(from_a2[0].capture.is_none());
-//     }
-//
-//     #[test]
-//     fn pawn_captures_diagonally_onto_enemy_piece() {
-//         // Lone white pawn on e4, lone black pawn on d5 — d5 must be flagged as a capture.
-//         let b = board_with(&[
-//             (
-//                 E4,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::White,
-//                 },
-//             ),
-//             (
-//                 D5,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::Black,
-//                 },
-//             ),
-//         ]);
-//
-//         let captures: Vec<_> = pawn_moves(b, Color::White)
-//             .into_iter()
-//             .filter(|m| m.capture.is_some())
-//             .collect();
-//
-//         assert_eq!(captures.len(), 1);
-//         assert_eq!(captures[0].orig, E4);
-//         assert_eq!(captures[0].dest, D5);
-//         assert_eq!(captures[0].capture, Some(D5));
-//         // The pawn actually moved on the resulting board.
-//         assert!(!captures[0].after.is_occupied(E4));
-//         let landed = captures[0].after.piece_at(D5).unwrap();
-//         assert_eq!(landed.role, Role::Pawn);
-//         assert_eq!(landed.color, Color::White);
-//     }
-//
-//     #[test]
-//     fn pawn_does_not_capture_own_color() {
-//         // Two adjacent white pawns: e4 and d5. e4 must not "capture" d5.
-//         let b = board_with(&[
-//             (
-//                 E4,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::White,
-//                 },
-//             ),
-//             (
-//                 D5,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::White,
-//                 },
-//             ),
-//         ]);
-//
-//         let captures: Vec<_> = pawn_moves(b, Color::White)
-//             .into_iter()
-//             .filter(|m| m.capture.is_some())
-//             .collect();
-//         assert!(captures.is_empty());
-//     }
-//
-//     #[test]
-//     fn lone_pawn_at_e4_has_only_a_single_push() {
-//         let b = board_with(&[(
-//             E4,
-//             Piece {
-//                 role: Role::Pawn,
-//                 color: Color::White,
-//             },
-//         )]);
-//
-//         let moves = pawn_moves(b, Color::White);
-//         assert_eq!(moves.len(), 1);
-//         assert_eq!(moves[0].orig, E4);
-//         assert_eq!(moves[0].dest, E5);
-//         assert!(moves[0].capture.is_none());
-//     }
-//
-//     #[test]
-//     fn black_pawn_attacks_two_white_targets_with_two_captures() {
-//         // Black pawn on b7 with two white pieces diagonally in front: a6 and c6.
-//         // Use a7 / c7 squares — but b7's black-pawn attacks land on a6 and c6.
-//         use crate::square::{A6, C6};
-//         let b = board_with(&[
-//             (
-//                 B7,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::Black,
-//                 },
-//             ),
-//             (
-//                 A6,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::White,
-//                 },
-//             ),
-//             (
-//                 C6,
-//                 Piece {
-//                     role: Role::Pawn,
-//                     color: Color::White,
-//                 },
-//             ),
-//         ]);
-//
-//         let captures: Vec<_> = pawn_moves(b, Color::Black)
-//             .into_iter()
-//             .filter(|m| m.capture.is_some())
-//             .collect();
-//         assert_eq!(captures.len(), 2);
-//         let dests: Vec<_> = captures.iter().map(|m| m.dest).collect();
-//         assert!(dests.contains(&A6));
-//         assert!(dests.contains(&C6));
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::unmoved_rooks::UnmovedRooks;
+
+    fn pc(role: Role, color: Color) -> Piece {
+        Piece { role, color }
+    }
+
+    /// Position with the given board, otherwise pristine (standard castles,
+    /// unmoved_rooks derived from `b`, white to move).
+    fn pos_from(b: Board) -> Position {
+        let history = History {
+            unmoved_rooks: UnmovedRooks::from_board(b),
+            ..History::new()
+        };
+        Position::new().with_board(b).with_history(history)
+    }
+
+    // ── Starting position sanity ─────────────────────────────────────────
+
+    #[test]
+    fn starting_position_has_20_moves() {
+        assert_eq!(Position::new().valid_moves().count(), 20);
+    }
+
+    #[test]
+    fn starting_position_pawn_moves_count() {
+        // 8 pawns × (1 single push + 1 double push) = 16
+        assert_eq!(Position::new().pawn_moves().count(), 16);
+    }
+
+    #[test]
+    fn starting_position_knight_moves_count() {
+        // 2 knights × 2 destinations each = 4
+        assert_eq!(Position::new().knight_moves().count(), 4);
+    }
+
+    #[test]
+    fn starting_position_no_castling() {
+        let castles: Vec<_> = Position::new()
+            .valid_moves()
+            .filter(|m| m.castle.is_some())
+            .collect();
+        assert!(
+            castles.is_empty(),
+            "no castles legal from start, got {castles:?}"
+        );
+    }
+
+    #[test]
+    fn starting_position_no_enpassant() {
+        assert_eq!(Position::new().enpassant_square(), None);
+        assert_eq!(Position::new().enpassant_moves().count(), 0);
+    }
+
+    #[test]
+    fn starting_position_no_promotion() {
+        let proms: Vec<_> = Position::new()
+            .valid_moves()
+            .filter(|m| m.promotion.is_some())
+            .collect();
+        assert!(proms.is_empty());
+    }
+
+    #[test]
+    fn starting_position_not_in_check() {
+        assert!(!Position::new().is_check());
+    }
+
+    #[test]
+    fn starting_position_has_moves() {
+        assert!(Position::new().has_moves());
+    }
+
+    // ── mve / color flip / history ───────────────────────────────────────
+
+    #[test]
+    fn mve_flips_color() {
+        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        assert_eq!(after.color(), Color::Black);
+    }
+
+    #[test]
+    fn mve_applies_move_to_board() {
+        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        assert!(!after.board().is_occupied(square::E2));
+        assert_eq!(
+            after.board().piece_at(square::E4),
+            Some(pc(Role::Pawn, Color::White))
+        );
+    }
+
+    #[test]
+    fn mve_invalid_returns_none() {
+        // E2 → E5 is not a legal pawn move (only 1 or 2 squares forward).
+        assert!(Position::new().mve(square::E2, square::E5).is_none());
+    }
+
+    #[test]
+    fn mve_from_empty_square_returns_none() {
+        assert!(Position::new().mve(square::E4, square::E5).is_none());
+    }
+
+    #[test]
+    fn mve_updates_history_last_move() {
+        let after = Position::new().mve(square::E2, square::E4).unwrap();
+        let lm = after.history().last_move.expect("last_move set after mve");
+        assert_eq!(lm.orig, square::E2);
+        assert_eq!(lm.dest, square::E4);
+    }
+
+    #[test]
+    fn change_color_actually_flips() {
+        let p = Position::new();
+        assert_eq!(p.color(), Color::White);
+        // change_color should produce a position whose color is the opponent.
+        // The current implementation in position.rs:40-43 is a no-op — this
+        // test surfaces the bug.
+        let q = p.change_color();
+        assert_eq!(q.color(), Color::Black);
+    }
+
+    // ── Pawn pushes ──────────────────────────────────────────────────────
+
+    #[test]
+    fn pawn_double_push_emits_two_destinations() {
+        let moves: Vec<_> = Position::new().valid_moves_at(square::E2).collect();
+        assert_eq!(moves.len(), 2);
+        let dests: Vec<_> = moves.iter().map(|m| m.dest).collect();
+        assert!(dests.contains(&square::E3));
+        assert!(dests.contains(&square::E4));
+    }
+
+    #[test]
+    fn pawn_blocked_cannot_push() {
+        // White pawn on E2 with a black knight directly in front on E3.
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E8, pc(Role::King, Color::Black))
+            .set(square::E2, pc(Role::Pawn, Color::White))
+            .set(square::E3, pc(Role::Knight, Color::Black));
+        let p = pos_from(b);
+        let pushes: Vec<_> = p
+            .valid_moves_at(square::E2)
+            .filter(|m| m.capture.is_none())
+            .collect();
+        assert!(
+            pushes.is_empty(),
+            "pawn blocked on E3 cannot push to E3 or E4, got {pushes:?}"
+        );
+    }
+
+    // ── En passant ───────────────────────────────────────────────────────
+
+    #[test]
+    fn enpassant_offered_after_opposing_double_push() {
+        // White pawn on E5, black just played D7→D5.
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E8, pc(Role::King, Color::Black))
+            .set(square::E5, pc(Role::Pawn, Color::White))
+            .set(square::D5, pc(Role::Pawn, Color::Black));
+        let history = History {
+            last_move: Some(crate::uci::Uci {
+                orig: square::D7,
+                dest: square::D5,
+                promotion: None,
+            }),
+            unmoved_rooks: UnmovedRooks::from_board(b),
+            ..History::new()
+        };
+        let p = Position::new().with_board(b).with_history(history);
+        assert_eq!(
+            p.enpassant_square(),
+            Some(square::D6),
+            "en passant target should be D6 (the square the black pawn passed)"
+        );
+        let eps: Vec<_> = p.enpassant_moves().collect();
+        assert_eq!(eps.len(), 1, "exactly one en-passant move available");
+        let m = eps[0];
+        assert_eq!(m.orig, square::E5);
+        assert_eq!(m.dest, square::D6);
+        assert_eq!(m.capture, Some(square::D5));
+        assert!(m.enpassant.is_some());
+    }
+
+    #[test]
+    fn enpassant_not_offered_after_single_push() {
+        // White pawn on E5, black played D6→D5 (single push, not double).
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E8, pc(Role::King, Color::Black))
+            .set(square::E5, pc(Role::Pawn, Color::White))
+            .set(square::D5, pc(Role::Pawn, Color::Black));
+        let history = History {
+            last_move: Some(crate::uci::Uci {
+                orig: square::D6,
+                dest: square::D5,
+                promotion: None,
+            }),
+            unmoved_rooks: UnmovedRooks::from_board(b),
+            ..History::new()
+        };
+        let p = Position::new().with_board(b).with_history(history);
+        assert_eq!(p.enpassant_square(), None);
+        assert_eq!(p.enpassant_moves().count(), 0);
+    }
+
+    // ── Promotion ────────────────────────────────────────────────────────
+
+    #[test]
+    fn pawn_on_seventh_promotes_to_four_pieces() {
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::H8, pc(Role::King, Color::Black))
+            .set(square::A7, pc(Role::Pawn, Color::White));
+        let p = pos_from(b);
+        let moves: Vec<_> = p.valid_moves_at(square::A7).collect();
+        assert_eq!(moves.len(), 4, "4 promotion choices; got {moves:?}");
+        let promos: Vec<_> = moves.iter().filter_map(|m| m.promotion).collect();
+        assert!(promos.contains(&PromotableRole::Queen));
+        assert!(promos.contains(&PromotableRole::Rook));
+        assert!(promos.contains(&PromotableRole::Bishop));
+        assert!(promos.contains(&PromotableRole::Knight));
+        for m in &moves {
+            assert_eq!(m.dest, square::A8);
+            assert_eq!(m.capture, None);
+        }
+    }
+
+    #[test]
+    fn pawn_pre_promotion_push_has_no_promotion_field() {
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E8, pc(Role::King, Color::Black))
+            .set(square::A6, pc(Role::Pawn, Color::White));
+        let p = pos_from(b);
+        let moves: Vec<_> = p.valid_moves_at(square::A6).collect();
+        assert!(
+            moves.iter().all(|m| m.promotion.is_none()),
+            "no promotion on rank-6 push, got {moves:?}"
+        );
+    }
+
+    // ── Castling ─────────────────────────────────────────────────────────
+
+    fn castling_board() -> Board {
+        Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::A1, pc(Role::Rook, Color::White))
+            .set(square::H1, pc(Role::Rook, Color::White))
+            .set(square::E8, pc(Role::King, Color::Black))
+            .set(square::A8, pc(Role::Rook, Color::Black))
+            .set(square::H8, pc(Role::Rook, Color::Black))
+    }
+
+    #[test]
+    fn castle_kingside_white_available() {
+        let p = pos_from(castling_board());
+        let castles: Vec<_> = p
+            .valid_moves()
+            .filter(|m| m.castle == Some(Side::King))
+            .collect();
+        assert_eq!(castles.len(), 1);
+        let m = castles[0];
+        assert_eq!(m.orig, square::E1);
+        assert_eq!(m.dest, square::G1);
+    }
+
+    #[test]
+    fn castle_queenside_white_available() {
+        let p = pos_from(castling_board());
+        let castles: Vec<_> = p
+            .valid_moves()
+            .filter(|m| m.castle == Some(Side::Queen))
+            .collect();
+        assert_eq!(castles.len(), 1);
+        assert_eq!(castles[0].orig, square::E1);
+        assert_eq!(castles[0].dest, square::C1);
+    }
+
+    #[test]
+    fn cannot_castle_kingside_through_check() {
+        // Black rook on F8 attacks F1 (a square the king transits).
+        let b = castling_board().set(square::F8, pc(Role::Rook, Color::Black));
+        let p = pos_from(b);
+        let king_castle = p.valid_moves().find(|m| m.castle == Some(Side::King));
+        assert!(
+            king_castle.is_none(),
+            "F-file rook prevents kingside castle"
+        );
+    }
+
+    #[test]
+    fn cannot_castle_while_in_check() {
+        // Black queen on E4 attacks E1 (white king's square) along the E-file.
+        let b = castling_board().set(square::E4, pc(Role::Queen, Color::Black));
+        let p = pos_from(b);
+        assert!(
+            p.is_check(),
+            "white king on E1 is in check from black Q on E4"
+        );
+        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        assert!(
+            any_castle.is_none(),
+            "no castles allowed while in check, got {any_castle:?}"
+        );
+    }
+
+    #[test]
+    fn cannot_castle_kingside_when_blocked() {
+        let b = castling_board().set(square::F1, pc(Role::Bishop, Color::White));
+        let p = pos_from(b);
+        let king_castle = p.valid_moves().find(|m| m.castle == Some(Side::King));
+        assert!(king_castle.is_none(), "bishop on F1 blocks kingside castle");
+    }
+
+    #[test]
+    fn cannot_castle_without_rights() {
+        let p = pos_from(castling_board()).with_castles(Castles::new(false, false, false, false));
+        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        assert!(any_castle.is_none());
+    }
+
+    #[test]
+    fn cannot_castle_with_moved_rooks() {
+        let history = History {
+            unmoved_rooks: UnmovedRooks::from_board(Board::EMPTY),
+            ..History::new()
+        };
+        let p = Position::new()
+            .with_board(castling_board())
+            .with_history(history);
+        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        assert!(any_castle.is_none(), "no castle when rooks have moved");
+    }
+
+    // ── is_check ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn is_check_detects_back_rank_rook() {
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E8, pc(Role::Rook, Color::Black))
+            .set(square::A8, pc(Role::King, Color::Black));
+        let p = pos_from(b);
+        assert!(p.is_check());
+    }
+
+    #[test]
+    fn is_check_false_when_blocked() {
+        let b = Board::EMPTY
+            .set(square::E1, pc(Role::King, Color::White))
+            .set(square::E4, pc(Role::Pawn, Color::White))
+            .set(square::E8, pc(Role::Rook, Color::Black))
+            .set(square::A8, pc(Role::King, Color::Black));
+        let p = pos_from(b);
+        assert!(!p.is_check(), "rook attack blocked by own pawn on E4");
+    }
+
+    // ── valid_moves_at consistency (small concrete check) ────────────────
+
+    #[test]
+    fn valid_moves_at_matches_filter_on_start() {
+        let p = Position::new();
+        for i in 0u8..64 {
+            let s = Square(i);
+            let direct = p.valid_moves_at(s).count();
+            let filtered = p.valid_moves().filter(|m| m.orig == s).count();
+            assert_eq!(direct, filtered, "mismatch at square {s}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::unmoved_rooks::UnmovedRooks;
+    use proptest::prelude::*;
+
+    // ── Strategies ───────────────────────────────────────────────────────
+
+    fn sq() -> impl Strategy<Value = Square> {
+        (0u8..64).prop_map(Square)
+    }
+
+    fn color() -> impl Strategy<Value = Color> {
+        prop_oneof![Just(Color::White), Just(Color::Black)]
+    }
+
+    fn non_king_role() -> impl Strategy<Value = Role> {
+        prop_oneof![
+            Just(Role::Pawn),
+            Just(Role::Knight),
+            Just(Role::Bishop),
+            Just(Role::Rook),
+            Just(Role::Queen),
+        ]
+    }
+
+    fn non_king_piece() -> impl Strategy<Value = Piece> {
+        (non_king_role(), color()).prop_map(|(role, color)| Piece { role, color })
+    }
+
+    /// Builds a position with kings on `wk`/`bk`, the listed non-king pieces sprinkled
+    /// on top (king squares and illegal pawn ranks skipped), and no castling rights.
+    fn build_position(wk: Square, bk: Square, ops: Vec<(Square, Piece)>, c: Color) -> Position {
+        let mut b = Board::EMPTY
+            .set(
+                wk,
+                Piece {
+                    role: Role::King,
+                    color: Color::White,
+                },
+            )
+            .set(
+                bk,
+                Piece {
+                    role: Role::King,
+                    color: Color::Black,
+                },
+            );
+        for (s, p) in ops {
+            if s == wk || s == bk {
+                continue;
+            }
+            if p.role == Role::Pawn {
+                let r = s.rank().as_u8();
+                if r == 0 || r == 7 {
+                    continue;
+                }
+            }
+            b = b.set(s, p);
+        }
+        let history = History {
+            castles: Castles::new(false, false, false, false),
+            unmoved_rooks: UnmovedRooks::from_board(b),
+            ..History::new()
+        };
+        Position::new()
+            .with_board(b)
+            .with_color(c)
+            .with_history(history)
+    }
+
+    /// Random "legal-enough" position: exactly one king per color, kings non-adjacent,
+    /// side-not-to-move not in check.
+    fn random_position() -> impl Strategy<Value = Position> {
+        (
+            sq(),
+            sq(),
+            prop::collection::vec((sq(), non_king_piece()), 0..12),
+            color(),
+        )
+            .prop_filter("kings distinct", |(wk, bk, _, _)| wk != bk)
+            .prop_filter("kings non-adjacent", |(wk, bk, _, _)| {
+                let dx = (wk.file().as_u8() as i32 - bk.file().as_u8() as i32).abs();
+                let dy = (wk.rank().as_u8() as i32 - bk.rank().as_u8() as i32).abs();
+                dx > 1 || dy > 1
+            })
+            .prop_map(|(wk, bk, ops, c)| build_position(wk, bk, ops, c))
+            .prop_filter("side-not-to-move not in check", |p| {
+                !p.board().is_check(p.color().opponent())
+            })
+    }
+
+    fn piece_count(b: &Board, role: Role, color: Color) -> u32 {
+        b.bypiece(Piece { role, color }).0.count_ones()
+    }
+
+    proptest! {
+        // 1. Every generated move is for a piece of the side to move.
+        #[test]
+        fn move_color_matches_side_to_move(p in random_position()) {
+            for m in p.valid_moves() {
+                prop_assert_eq!(m.piece.color, p.color());
+            }
+        }
+
+        // 2. No null moves.
+        #[test]
+        fn move_orig_not_equal_dest(p in random_position()) {
+            for m in p.valid_moves() {
+                prop_assert_ne!(m.orig, m.dest);
+            }
+        }
+
+        // 3. The origin square holds the piece claimed by the move.
+        #[test]
+        fn move_origin_holds_claimed_piece(p in random_position()) {
+            for m in p.valid_moves() {
+                prop_assert_eq!(p.board().piece_at(m.orig), Some(m.piece));
+            }
+        }
+
+        // 4. After-board has exactly one king of each color (king cannot be captured).
+        #[test]
+        fn after_board_keeps_both_kings(p in random_position()) {
+            for m in p.valid_moves() {
+                let white_kings = piece_count(&m.after, Role::King, Color::White);
+                let black_kings = piece_count(&m.after, Role::King, Color::Black);
+                prop_assert_eq!(white_kings, 1);
+                prop_assert_eq!(black_kings, 1);
+            }
+        }
+
+        // 5. After-board satisfies bitboard invariants.
+        #[test]
+        fn after_board_invariants(p in random_position()) {
+            for m in p.valid_moves() {
+                let b = m.after;
+                let white = b.bycolor(Color::White);
+                let black = b.bycolor(Color::Black);
+                prop_assert_eq!(b.occupied(), white | black);
+                prop_assert_eq!(white & black, crate::bitboard::Bitboard::EMPTY);
+            }
+        }
+
+        // 6. Move generation is deterministic.
+        #[test]
+        fn deterministic(p in random_position()) {
+            let a: Vec<Move> = p.valid_moves().collect();
+            let b: Vec<Move> = p.valid_moves().collect();
+            prop_assert_eq!(a, b);
+        }
+
+        // 7. valid_moves equals the disjoint union of per-piece-type generators.
+        #[test]
+        fn partition_matches_per_piece_generators(p in random_position()) {
+            let total = p.valid_moves().count();
+            let sum = p.pawn_moves().count()
+                + p.enpassant_moves().count()
+                + p.king_moves().count()
+                + p.knight_moves().count()
+                + p.bishop_moves().count()
+                + p.rook_moves().count()
+                + p.queen_moves().count();
+            prop_assert_eq!(total, sum);
+        }
+
+        // 8. valid_moves_at(s) is equivalent to filtering valid_moves() by orig==s.
+        #[test]
+        fn valid_moves_at_filter_consistent(p in random_position()) {
+            for i in 0u8..64 {
+                let s = Square(i);
+                let direct = p.valid_moves_at(s).count();
+                let filtered = p.valid_moves().filter(|m| m.orig == s).count();
+                prop_assert_eq!(direct, filtered);
+            }
+        }
+
+        // 9. has_moves agrees with valid_moves().next().is_some().
+        #[test]
+        fn has_moves_iff_any(p in random_position()) {
+            prop_assert_eq!(p.has_moves(), p.valid_moves().next().is_some());
+        }
+
+        // 10. mve() with a listed move succeeds and flips color.
+        #[test]
+        fn mve_with_listed_move_works(p in random_position()) {
+            if let Some(m) = p.valid_moves().next() {
+                let next = p.clone().mve(m.orig, m.dest).expect("listed move must succeed");
+                prop_assert_eq!(next.color(), p.color().opponent());
+                if m.promotion.is_none() {
+                    prop_assert_eq!(*next.board(), m.after);
+                }
+            }
+        }
+
+        // 11. Promotion moves only land on the opponent's back rank.
+        #[test]
+        fn promotion_only_on_opponent_back_rank(p in random_position()) {
+            let opp_back = p.color().opponent().back_rank();
+            for m in p.valid_moves() {
+                if m.promotion.is_some() {
+                    prop_assert_eq!(m.dest.rank(), opp_back);
+                    prop_assert_eq!(m.piece.role, Role::Pawn);
+                }
+            }
+        }
+
+        // 12. valid_moves() does not mutate the position.
+        #[test]
+        fn valid_moves_does_not_mutate(p in random_position()) {
+            let before = p.clone();
+            let _: Vec<Move> = p.valid_moves().collect();
+            prop_assert_eq!(p, before);
+        }
+    }
+}
