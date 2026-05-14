@@ -38,6 +38,9 @@ see [examples](https://github.com/zjom/ruchess/tree/main/examples) or [ruchess t
 
 i like chess
 
+i currently only support standard chess. it is unlikely i will support other variants.
+
+probably check out [shakmaty](https://github.com/niklasf/shakmaty) if you want more features
 
 ## dependencies
 
