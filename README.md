@@ -82,10 +82,10 @@ code in [examples/perft.rs](examples/perft.rs)
 
 benchmarks were ran on m1 macbook pro
 
-at depth=4 and depth=5, we are at 9ms and 100ms respectively.
+at depth=4 and depth=5, we are at 4ms and 63ms respectively.
 
 for reference, [shakmaty](https://github.com/niklasf/shakmaty) and [jordanbray/chess](https://github.com/jordanbray/chess) are at 0.8 - 1ms for depth=4 and 18.6 - 24.1ms for depth=5.
-we are currently an order of magnitude slower.
+we are currently about 3x slower.
 
 it is worth noting that the shakmaty and jordanbray benchmarks weren't run on my machine but still (sort of) indicative.
 
