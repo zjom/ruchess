@@ -321,7 +321,8 @@ impl Position {
         let new_hashes = if prior_position_hashes.is_disabled() {
             crate::hash::PositionHash::Disabled
         } else {
-            let entry = crate::hash::PositionHash::from_hash(crate::hash::Hash::from_position(self));
+            let entry =
+                crate::hash::PositionHash::from_hash(crate::hash::Hash::from_position(self));
             entry.combine(&prior_position_hashes)
         };
         self.history.position_hashes = new_hashes;
@@ -832,8 +833,7 @@ impl LegalityContext {
         } else if n_checkers == 1 {
             // Single checker — non-king pieces must capture it or block.
             let checker_sq = Square(checkers.0.trailing_zeros() as u8);
-            let between =
-                Bitboard(ATTACKS.between[king_sq.0 as usize][checker_sq.0 as usize]);
+            let between = Bitboard(ATTACKS.between[king_sq.0 as usize][checker_sq.0 as usize]);
             (between | Bitboard::from(checker_sq), false)
         } else {
             (Bitboard::EMPTY, true)
@@ -852,22 +852,20 @@ impl LegalityContext {
         // Rook-style pinners (rank/file rays).
         let rook_candidates = ATTACKS.rook_attacks(king_sq, Bitboard::EMPTY) & opp_rq;
         for pinner_sq in rook_candidates {
-            let between =
-                Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
+            let between = Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
             let blockers = between & occupied;
             if blockers.0.count_ones() == 1 && (blockers & our_pieces).is_non_empty() {
-                pinned = pinned | blockers;
+                pinned |= blockers;
             }
         }
 
         // Bishop-style pinners (diagonal rays).
         let bishop_candidates = ATTACKS.bishop_attacks(king_sq, Bitboard::EMPTY) & opp_bq;
         for pinner_sq in bishop_candidates {
-            let between =
-                Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
+            let between = Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
             let blockers = between & occupied;
             if blockers.0.count_ones() == 1 && (blockers & our_pieces).is_non_empty() {
-                pinned = pinned | blockers;
+                pinned |= blockers;
             }
         }
 
@@ -905,8 +903,7 @@ impl LegalityContext {
         }
         // Pinned pieces may only move along the king–pinner line.
         if self.pinned.is_set(mve.orig) {
-            let ray =
-                Bitboard(ATTACKS.rays[self.king_sq.0 as usize][mve.orig.0 as usize]);
+            let ray = Bitboard(ATTACKS.rays[self.king_sq.0 as usize][mve.orig.0 as usize]);
             return ray.is_set(mve.dest);
         }
         true

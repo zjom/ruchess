@@ -340,7 +340,6 @@ impl From<Castles> for Bitboard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board::Board;
     use crate::piece::Piece;
 
     #[test]
