@@ -62,8 +62,8 @@ i could probably get rid of it with some refactoring but i am lazy
 
 ## roadmap
 
-- [ ] benchmarks
-  - will move to mutable api if benchmarks are very bad
+- [x] benchmarks
+  - will move to mutable api if benchmarks are very bad (update: working on performance)
 - [ ] parsing
   - [x] fen
   - [ ] pgn
