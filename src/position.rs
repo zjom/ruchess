@@ -15,9 +15,12 @@
 //! ```
 //! # use ruchess::position::Position;
 //! # use ruchess::color::Color;
+//! # use ruchess::mve::Move;
 //! let standard = Position::new();
 //! assert_eq!(standard.color(), Color::White);
-//! assert_eq!(standard.valid_moves().count(), 20);
+//! let mut moves: Vec<Move> = Vec::with_capacity(256);
+//! standard.valid_moves(&mut moves);
+//! assert_eq!(moves.len(), 20);
 //!
 //! let black_to_move = Position::new().with_color(Color::Black);
 //! assert_eq!(black_to_move.color(), Color::Black);
@@ -25,8 +28,8 @@
 //!
 //! ## Generating moves
 //!
-//! [`Position::valid_moves`] enumerates every legal move; [`Position::mve`]
-//! plays one and returns the resulting position:
+//! [`Position::valid_moves`] appends every legal move to a caller-owned
+//! buffer; [`Position::mve`] plays one and returns the resulting position:
 //!
 //! ```
 //! # use ruchess::position::Position;
@@ -38,9 +41,9 @@
 //! assert!(next.board().is_occupied(square::E4));
 //! ```
 //!
-//! Each move type also has a dedicated iterator
-//! ([`Position::pawn_moves`], [`Position::knight_moves`], …) which together
-//! partition [`Position::valid_moves`].
+//! Each move type also has a dedicated generator
+//! ([`Position::pawn_moves`], [`Position::knight_moves`], …) that appends
+//! into the same buffer; together they partition [`Position::valid_moves`].
 
 use crate::{
     attacks::ATTACKS,
@@ -92,10 +95,13 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::color::Color;
+    /// # use ruchess::mve::Move;
     /// let p = Position::new();
     /// assert_eq!(p.color(), Color::White);
     /// assert!(!p.is_check());
-    /// assert_eq!(p.valid_moves().count(), 20);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// p.valid_moves(&mut moves);
+    /// assert_eq!(moves.len(), 20);
     /// ```
     pub fn new() -> Self {
         Self {
@@ -277,8 +283,10 @@ impl Position {
         dest: Square,
         promotion: Option<PromotableRole>,
     ) -> Option<Self> {
-        let mve = self
-            .valid_moves()
+        let mut buf: Vec<Move> = Vec::with_capacity(MAX_MOVES);
+        self.valid_moves(&mut buf);
+        let mve = *buf
+            .iter()
             .find(|m| m.orig == orig && m.dest == dest && m.promotion == promotion)?;
         self.make(&mve);
         Some(self)
@@ -298,8 +306,11 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::color::Color;
+    /// # use ruchess::mve::Move;
     /// let mut p = Position::new();
-    /// let m = p.valid_moves().next().unwrap();
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// p.valid_moves(&mut moves);
+    /// let m = moves[0];
     /// let undo = p.make(&m);
     /// assert_eq!(p.color(), Color::Black);
     /// p.unmake(undo);
@@ -442,29 +453,45 @@ impl Position {
             .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color))
     }
 
-    /// Iterates every legal move from this position across all piece types.
+    /// Appends every legal move from this position to `buf`, across all
+    /// piece types.
     ///
-    /// The returned iterator is the disjoint chain of the per-piece-type
-    /// generators ([`Self::pawn_moves`], [`Self::enpassant_moves`],
-    /// [`Self::king_moves`], …) in a fixed order.
+    /// Calls each per-piece-type generator ([`Self::pawn_moves`],
+    /// [`Self::enpassant_moves`], [`Self::king_moves`], …) in a fixed order,
+    /// then retains only those that satisfy check/pin legality.
+    ///
+    /// Existing contents of `buf` are preserved; new moves are pushed onto
+    /// the end. A typical caller preallocates with [`MAX_MOVES`] capacity.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
-    /// assert_eq!(Position::new().valid_moves().count(), 20);
+    /// # use ruchess::mve::Move;
+    /// let mut moves: Vec<Move> = Vec::with_capacity(256);
+    /// Position::new().valid_moves(&mut moves);
+    /// assert_eq!(moves.len(), 20);
     /// ```
-    pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn valid_moves(&self, buf: &mut Vec<Move>) {
+        let start = buf.len();
+        self.pawn_moves(buf);
+        self.enpassant_moves(buf);
+        self.king_moves(buf);
+        self.knight_moves(buf);
+        self.bishop_moves(buf);
+        self.rook_moves(buf);
+        self.queen_moves(buf);
+
         let ctx = LegalityContext::compute(self);
         let board = self.board;
         let color = self.color;
-        self.pawn_moves()
-            .chain(self.enpassant_moves())
-            .chain(self.king_moves())
-            .chain(self.knight_moves())
-            .chain(self.bishop_moves())
-            .chain(self.rook_moves())
-            .chain(self.queen_moves())
-            .filter(move |m| ctx.is_legal(m, board, color))
+        let mut write = start;
+        for read in start..buf.len() {
+            if ctx.is_legal(&buf[read], board, color) {
+                buf[write] = buf[read];
+                write += 1;
+            }
+        }
+        buf.truncate(write);
     }
 
     /// Returns `true` if at least one legal move exists from this position.
@@ -475,109 +502,135 @@ impl Position {
     /// assert!(Position::new().has_moves());
     /// ```
     pub fn has_moves(&self) -> bool {
-        self.valid_moves().any(|_| true)
+        let mut buf: Vec<Move> = Vec::with_capacity(MAX_MOVES);
+        self.valid_moves(&mut buf);
+        !buf.is_empty()
     }
 
-    /// Iterates all legal moves originating from `orig`.
+    /// Appends every legal move originating from `orig` to `buf`.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::square;
+    /// # use ruchess::mve::Move;
+    /// let p = Position::new();
+    /// let mut moves: Vec<Move> = Vec::new();
     /// // The E2 pawn has two pushes (one and two squares).
-    /// assert_eq!(Position::new().valid_moves_at(square::E2).count(), 2);
+    /// p.valid_moves_at(square::E2, &mut moves);
+    /// assert_eq!(moves.len(), 2);
+    /// moves.clear();
     /// // The A1 rook is locked in by its own pieces.
-    /// assert_eq!(Position::new().valid_moves_at(square::A1).count(), 0);
+    /// p.valid_moves_at(square::A1, &mut moves);
+    /// assert_eq!(moves.len(), 0);
     /// ```
-    pub fn valid_moves_at(&self, orig: Square) -> impl Iterator<Item = Move> {
-        self.valid_moves().filter(move |m| m.orig == orig)
+    pub fn valid_moves_at(&self, orig: Square, buf: &mut Vec<Move>) {
+        let start = buf.len();
+        self.valid_moves(buf);
+        let mut write = start;
+        for read in start..buf.len() {
+            if buf[read].orig == orig {
+                buf[write] = buf[read];
+                write += 1;
+            }
+        }
+        buf.truncate(write);
     }
 
-    /// Iterates all legal pawn moves: pushes, double pushes, captures, and
-    /// promotions. En-passant captures are emitted separately by
-    /// [`Self::enpassant_moves`].
+    /// Appends all pseudo-legal pawn moves to `buf`: pushes, double pushes,
+    /// captures, and promotions. En-passant captures are emitted separately
+    /// by [`Self::enpassant_moves`].
+    ///
+    /// "Pseudo-legal" — moves that leave the king in check are *not* filtered
+    /// here. [`Self::valid_moves`] applies that filter once over the full
+    /// pseudo-legal set.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // 8 pawns × (single + double) = 16 from the starting position.
-    /// assert_eq!(Position::new().pawn_moves().count(), 16);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().pawn_moves(&mut moves);
+    /// assert_eq!(moves.len(), 16);
     /// ```
-    pub fn pawn_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn pawn_moves(&self, buf: &mut Vec<Move>) {
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
             color: self.color,
         });
-        let captures = pawns
-            .flat_map(|from| {
-                (ATTACKS.pawn_attacks(self.color, from) & self.board.bycolor(self.color.opponent()))
-                    .into_iter()
-                    .map(move |to| (from, to))
-            })
-            .flat_map(|(from, to)| self.gen_pawn_moves(from, to, true));
+        let them = self.board.bycolor(self.color.opponent());
 
+        // Captures.
+        for from in pawns {
+            for to in ATTACKS.pawn_attacks(self.color, from) & them {
+                self.push_pawn_moves(buf, from, to, true);
+            }
+        }
+
+        // Single pushes.
         let singles = !self.board.occupied()
             & (match self.color {
                 Color::White => (self.board.white() & pawns) << 8,
                 Color::Black => (self.board.black() & pawns) >> 8,
             });
-
-        let single_moves = singles.flat_map(|to| {
+        for to in singles {
             let from = Square(match self.color {
                 Color::White => to.0 - 8,
                 Color::Black => to.0 + 8,
             });
-            self.gen_pawn_moves(from, to, false)
-        });
+            self.push_pawn_moves(buf, from, to, false);
+        }
 
+        // Double pushes.
         let doubles = !self.board.occupied()
             & (match self.color {
                 Color::White => singles << 8,
                 Color::Black => singles >> 8,
             })
             & self.color.fourth_rank();
-        let double_moves = doubles.flat_map(|to| {
+        for to in doubles {
             let from = Square(match self.color {
                 Color::White => to.0 - 16,
                 Color::Black => to.0 + 16,
             });
-            self.gen_pawn_moves(from, to, false)
-        });
-
-        captures.chain(single_moves).chain(double_moves)
+            self.push_pawn_moves(buf, from, to, false);
+        }
     }
 
-    /// Iterates en-passant captures available to the side to move.
+    /// Appends en-passant captures available to the side to move.
     ///
-    /// Returns an empty iterator unless the previous move was a two-square
-    /// pawn push that ended next to a friendly pawn.
+    /// Adds nothing unless the previous move was a two-square pawn push that
+    /// ended next to a friendly pawn.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // No en-passant on move 1 (no prior move to react to).
-    /// assert_eq!(Position::new().enpassant_moves().count(), 0);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().enpassant_moves(&mut moves);
+    /// assert!(moves.is_empty());
     /// ```
-    pub fn enpassant_moves(&self) -> impl Iterator<Item = Move> {
-        self.history
-            .last_move
-            .and_then(|last_move| {
-                let target = potential_enpassant_sq(last_move, self.board, self.color)?;
-                let our_pawns = self.board.bypiece(Piece {
-                    role: Role::Pawn,
-                    color: self.color,
-                });
-                Some(
-                    (ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns)
-                        .into_iter()
-                        .filter_map(move |from| self.enpassant(from, target)),
-                )
-            })
-            .into_iter()
-            .flatten()
+    pub fn enpassant_moves(&self, buf: &mut Vec<Move>) {
+        let Some(last_move) = self.history.last_move else {
+            return;
+        };
+        let Some(target) = potential_enpassant_sq(last_move, self.board, self.color) else {
+            return;
+        };
+        let our_pawns = self.board.bypiece(Piece {
+            role: Role::Pawn,
+            color: self.color,
+        });
+        for from in ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns {
+            if let Some(m) = self.enpassant(from, target) {
+                buf.push(m);
+            }
+        }
     }
 
-    /// Iterates all legal king moves, including castling.
+    /// Appends all legal king moves to `buf`, including castling.
     ///
     /// Destinations attacked by the opponent are filtered out. The check is
     /// performed against the board with our king temporarily removed, so a
@@ -587,124 +640,147 @@ impl Position {
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // From the starting position the king is hemmed in by its own pieces.
-    /// assert_eq!(Position::new().king_moves().count(), 0);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().king_moves(&mut moves);
+    /// assert!(moves.is_empty());
     /// ```
-    pub fn king_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn king_moves(&self, buf: &mut Vec<Move>) {
         let orig = self.board.king(self.color);
-        // Remove our king for attack detection so sliders see through its current
-        // square — otherwise the king could slide along an attacker's ray.
+        // Remove our king for attack detection so sliders see through its
+        // current square — otherwise the king could slide along an
+        // attacker's ray.
         let board_without_king = self.board.pop(orig).0;
-        let color = self.color;
-        let moves = ATTACKS.king_attacks(orig).filter_map(move |dest| {
-            (!board_without_king.is_attacked(dest, color)).then_some(self.normal(
-                orig,
-                dest,
-                Role::King,
-            )?)
-        });
-        moves.chain(self.castling_moves().into_iter().flatten())
+        for dest in ATTACKS.king_attacks(orig) {
+            if board_without_king.is_attacked(dest, self.color) {
+                continue;
+            }
+            if let Some(m) = self.normal(orig, dest, Role::King) {
+                buf.push(m);
+            }
+        }
+        self.push_castling_moves(buf);
     }
 
-    /// Iterates all legal knight moves.
+    /// Appends all pseudo-legal knight moves to `buf`.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // 2 knights × 2 destinations each = 4 from the starting position.
-    /// assert_eq!(Position::new().knight_moves().count(), 4);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().knight_moves(&mut moves);
+    /// assert_eq!(moves.len(), 4);
     /// ```
-    pub fn knight_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn knight_moves(&self, buf: &mut Vec<Move>) {
         let knights = self.board.bypiece(Piece {
             role: Role::Knight,
             color: self.color,
         });
-        knights
-            .flat_map(|from| ATTACKS.knight_attacks(from).map(move |to| (from, to)))
-            .filter_map(|(from, to)| self.normal(from, to, Role::Knight))
+        for from in knights {
+            for to in ATTACKS.knight_attacks(from) {
+                if let Some(m) = self.normal(from, to, Role::Knight) {
+                    buf.push(m);
+                }
+            }
+        }
     }
 
-    /// Iterates all legal bishop moves.
+    /// Appends all pseudo-legal bishop moves to `buf`.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // Bishops are blocked by own pawns at the start.
-    /// assert_eq!(Position::new().bishop_moves().count(), 0);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().bishop_moves(&mut moves);
+    /// assert!(moves.is_empty());
     /// ```
-    pub fn bishop_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn bishop_moves(&self, buf: &mut Vec<Move>) {
         let bishops = self.board.bypiece(Piece {
             role: Role::Bishop,
             color: self.color,
         });
-        bishops
-            .flat_map(|from| {
-                ATTACKS
-                    .bishop_attacks(from, self.board.occupied())
-                    .map(move |to| (from, to))
-            })
-            .filter_map(|(from, to)| self.normal(from, to, Role::Bishop))
+        for from in bishops {
+            for to in ATTACKS.bishop_attacks(from, self.board.occupied()) {
+                if let Some(m) = self.normal(from, to, Role::Bishop) {
+                    buf.push(m);
+                }
+            }
+        }
     }
 
-    /// Iterates all legal rook moves.
+    /// Appends all pseudo-legal rook moves to `buf`.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // Rooks are locked in by their own pieces at the start.
-    /// assert_eq!(Position::new().rook_moves().count(), 0);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().rook_moves(&mut moves);
+    /// assert!(moves.is_empty());
     /// ```
-    pub fn rook_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn rook_moves(&self, buf: &mut Vec<Move>) {
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
             color: self.color,
         });
-        rooks
-            .flat_map(|from| {
-                ATTACKS
-                    .rook_attacks(from, self.board.occupied())
-                    .map(move |to| (from, to))
-            })
-            .filter_map(|(from, to)| self.normal(from, to, Role::Rook))
+        for from in rooks {
+            for to in ATTACKS.rook_attacks(from, self.board.occupied()) {
+                if let Some(m) = self.normal(from, to, Role::Rook) {
+                    buf.push(m);
+                }
+            }
+        }
     }
 
-    /// Iterates all legal queen moves (bishop-like + rook-like rays).
+    /// Appends all pseudo-legal queen moves to `buf` (bishop-like + rook-like
+    /// rays).
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::mve::Move;
     /// // The queen has no legal moves from the starting position.
-    /// assert_eq!(Position::new().queen_moves().count(), 0);
+    /// let mut moves: Vec<Move> = Vec::new();
+    /// Position::new().queen_moves(&mut moves);
+    /// assert!(moves.is_empty());
     /// ```
-    pub fn queen_moves(&self) -> impl Iterator<Item = Move> {
+    pub fn queen_moves(&self, buf: &mut Vec<Move>) {
         let queens = self.board.bypiece(Piece {
             role: Role::Queen,
             color: self.color,
         });
-        queens
-            .flat_map(|from| {
-                let bishops = ATTACKS
-                    .bishop_attacks(from, self.board.occupied())
-                    .map(move |to| (from, to));
-                let rooks = ATTACKS
-                    .rook_attacks(from, self.board.occupied())
-                    .map(move |to| (from, to));
-                bishops.chain(rooks)
-            })
-            .filter_map(|(from, to)| self.normal(from, to, Role::Queen))
+        let occupied = self.board.occupied();
+        for from in queens {
+            for to in ATTACKS.bishop_attacks(from, occupied) {
+                if let Some(m) = self.normal(from, to, Role::Queen) {
+                    buf.push(m);
+                }
+            }
+            for to in ATTACKS.rook_attacks(from, occupied) {
+                if let Some(m) = self.normal(from, to, Role::Queen) {
+                    buf.push(m);
+                }
+            }
+        }
     }
 
-    /// Returns the legal castling moves for the side to move, or `None` if
-    /// castling is unavailable because the king is currently in check.
-    fn castling_moves(&self) -> Option<impl Iterator<Item = Move>> {
+    /// Appends the legal castling moves for the side to move. Adds nothing
+    /// if the king is currently in check.
+    fn push_castling_moves(&self, buf: &mut Vec<Move>) {
         if self.board.is_check(self.color) {
-            return None;
+            return;
         }
-        Some(
-            [Side::King, Side::Queen]
-                .into_iter()
-                .filter_map(|side| self.castle(side)),
-        )
+        for side in [Side::King, Side::Queen] {
+            if let Some(m) = self.castle(side) {
+                buf.push(m);
+            }
+        }
     }
 
     /// Attempts to build a single castling move on the given [`Side`].
@@ -766,37 +842,30 @@ impl Position {
     }
 
     /// Expands a single pawn step from `from` to `to` into the appropriate
-    /// move set: four promotion moves if `from` is on the seventh rank
-    /// (relative to the mover), otherwise one ordinary pawn move.
-    fn gen_pawn_moves(
-        &self,
-        from: Square,
-        to: Square,
-        is_capture: bool,
-    ) -> impl Iterator<Item = Move> + '_ {
+    /// move set and appends it to `buf`: four promotion moves if `from` is on
+    /// the seventh rank (relative to the mover), otherwise one ordinary pawn
+    /// move.
+    fn push_pawn_moves(&self, buf: &mut Vec<Move>, from: Square, to: Square, is_capture: bool) {
         let is_promotion = from.rank() == self.color.seventh_rank();
-
-        // Up to 4 promotion moves — empty if not a promoting rank.
-        let captured = if is_capture {
-            self.board.role_at(to).map(|r| (to, r))
-        } else {
-            None
-        };
-        let promotions = is_promotion
-            .then_some(PromotableRole::ROLES)
-            .into_iter()
-            .flatten()
-            .map(move |r| Move::promotion(self.color, from, to, r, captured));
-
-        // 0 or 1 normal pawn moves — empty if it IS a promoting rank.
-        let normal = (!is_promotion)
-            .then(|| self.normal(from, to, Role::Pawn))
-            .flatten()
-            .into_iter();
-
-        promotions.chain(normal)
+        if is_promotion {
+            let captured = if is_capture {
+                self.board.role_at(to).map(|r| (to, r))
+            } else {
+                None
+            };
+            for r in PromotableRole::ROLES {
+                buf.push(Move::promotion(self.color, from, to, r, captured));
+            }
+        } else if let Some(m) = self.normal(from, to, Role::Pawn) {
+            buf.push(m);
+        }
     }
 }
+
+/// Upper bound on legal moves in any chess position. The empirical maximum
+/// is ~218; 256 is a safe round number that callers can use to preallocate
+/// move buffers.
+pub const MAX_MOVES: usize = 256;
 
 /// Per-position legality info used to filter pseudo-legal moves without
 /// invoking make/is_check on every candidate.
@@ -1047,29 +1116,47 @@ mod tests {
         Position::new().with_board(b).with_history(history)
     }
 
+    /// Test helper: collect every legal move into a fresh `Vec`.
+    fn collect_valid(p: &Position) -> Vec<Move> {
+        let mut buf = Vec::new();
+        p.valid_moves(&mut buf);
+        buf
+    }
+
+    /// Test helper: collect every legal move with `orig == s` into a fresh `Vec`.
+    fn collect_at(p: &Position, s: Square) -> Vec<Move> {
+        let mut buf = Vec::new();
+        p.valid_moves_at(s, &mut buf);
+        buf
+    }
+
     // ── Starting position sanity ─────────────────────────────────────────
 
     #[test]
     fn starting_position_has_20_moves() {
-        assert_eq!(Position::new().valid_moves().count(), 20);
+        assert_eq!(collect_valid(&Position::new()).len(), 20);
     }
 
     #[test]
     fn starting_position_pawn_moves_count() {
         // 8 pawns × (1 single push + 1 double push) = 16
-        assert_eq!(Position::new().pawn_moves().count(), 16);
+        let mut buf = Vec::new();
+        Position::new().pawn_moves(&mut buf);
+        assert_eq!(buf.len(), 16);
     }
 
     #[test]
     fn starting_position_knight_moves_count() {
         // 2 knights × 2 destinations each = 4
-        assert_eq!(Position::new().knight_moves().count(), 4);
+        let mut buf = Vec::new();
+        Position::new().knight_moves(&mut buf);
+        assert_eq!(buf.len(), 4);
     }
 
     #[test]
     fn starting_position_no_castling() {
-        let castles: Vec<_> = Position::new()
-            .valid_moves()
+        let castles: Vec<_> = collect_valid(&Position::new())
+            .into_iter()
             .filter(|m| m.castle.is_some())
             .collect();
         assert!(
@@ -1081,13 +1168,15 @@ mod tests {
     #[test]
     fn starting_position_no_enpassant() {
         assert_eq!(Position::new().enpassant_square(), None);
-        assert_eq!(Position::new().enpassant_moves().count(), 0);
+        let mut buf = Vec::new();
+        Position::new().enpassant_moves(&mut buf);
+        assert!(buf.is_empty());
     }
 
     #[test]
     fn starting_position_no_promotion() {
-        let proms: Vec<_> = Position::new()
-            .valid_moves()
+        let proms: Vec<_> = collect_valid(&Position::new())
+            .into_iter()
             .filter(|m| m.promotion.is_some())
             .collect();
         assert!(proms.is_empty());
@@ -1155,7 +1244,7 @@ mod tests {
 
     #[test]
     fn pawn_double_push_emits_two_destinations() {
-        let moves: Vec<_> = Position::new().valid_moves_at(square::E2).collect();
+        let moves = collect_at(&Position::new(), square::E2);
         assert_eq!(moves.len(), 2);
         let dests: Vec<_> = moves.iter().map(|m| m.dest).collect();
         assert!(dests.contains(&square::E3));
@@ -1171,8 +1260,8 @@ mod tests {
             .set(square::E2, pc(Role::Pawn, Color::White))
             .set(square::E3, pc(Role::Knight, Color::Black));
         let p = pos_from(b);
-        let pushes: Vec<_> = p
-            .valid_moves_at(square::E2)
+        let pushes: Vec<_> = collect_at(&p, square::E2)
+            .into_iter()
             .filter(|m| m.capture.is_none())
             .collect();
         assert!(
@@ -1206,7 +1295,8 @@ mod tests {
             Some(square::D6),
             "en passant target should be D6 (the square the black pawn passed)"
         );
-        let eps: Vec<_> = p.enpassant_moves().collect();
+        let mut eps: Vec<Move> = Vec::new();
+        p.enpassant_moves(&mut eps);
         assert_eq!(eps.len(), 1, "exactly one en-passant move available");
         let m = eps[0];
         assert_eq!(m.orig, square::E5);
@@ -1234,7 +1324,9 @@ mod tests {
         };
         let p = Position::new().with_board(b).with_history(history);
         assert_eq!(p.enpassant_square(), None);
-        assert_eq!(p.enpassant_moves().count(), 0);
+        let mut eps: Vec<Move> = Vec::new();
+        p.enpassant_moves(&mut eps);
+        assert!(eps.is_empty());
     }
 
     // ── Promotion ────────────────────────────────────────────────────────
@@ -1246,7 +1338,7 @@ mod tests {
             .set(square::H8, pc(Role::King, Color::Black))
             .set(square::A7, pc(Role::Pawn, Color::White));
         let p = pos_from(b);
-        let moves: Vec<_> = p.valid_moves_at(square::A7).collect();
+        let moves = collect_at(&p, square::A7);
         assert_eq!(moves.len(), 4, "4 promotion choices; got {moves:?}");
         let promos: Vec<_> = moves.iter().filter_map(|m| m.promotion).collect();
         assert!(promos.contains(&PromotableRole::Queen));
@@ -1266,7 +1358,7 @@ mod tests {
             .set(square::E8, pc(Role::King, Color::Black))
             .set(square::A6, pc(Role::Pawn, Color::White));
         let p = pos_from(b);
-        let moves: Vec<_> = p.valid_moves_at(square::A6).collect();
+        let moves = collect_at(&p, square::A6);
         assert!(
             moves.iter().all(|m| m.promotion.is_none()),
             "no promotion on rank-6 push, got {moves:?}"
@@ -1288,8 +1380,8 @@ mod tests {
     #[test]
     fn castle_kingside_white_available() {
         let p = pos_from(castling_board());
-        let castles: Vec<_> = p
-            .valid_moves()
+        let castles: Vec<_> = collect_valid(&p)
+            .into_iter()
             .filter(|m| m.castle == Some(Side::King))
             .collect();
         assert_eq!(castles.len(), 1);
@@ -1301,8 +1393,8 @@ mod tests {
     #[test]
     fn castle_queenside_white_available() {
         let p = pos_from(castling_board());
-        let castles: Vec<_> = p
-            .valid_moves()
+        let castles: Vec<_> = collect_valid(&p)
+            .into_iter()
             .filter(|m| m.castle == Some(Side::Queen))
             .collect();
         assert_eq!(castles.len(), 1);
@@ -1315,7 +1407,9 @@ mod tests {
         // Black rook on F8 attacks F1 (a square the king transits).
         let b = castling_board().set(square::F8, pc(Role::Rook, Color::Black));
         let p = pos_from(b);
-        let king_castle = p.valid_moves().find(|m| m.castle == Some(Side::King));
+        let king_castle = collect_valid(&p)
+            .into_iter()
+            .find(|m| m.castle == Some(Side::King));
         assert!(
             king_castle.is_none(),
             "F-file rook prevents kingside castle"
@@ -1331,7 +1425,9 @@ mod tests {
             p.is_check(),
             "white king on E1 is in check from black Q on E4"
         );
-        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p)
+            .into_iter()
+            .find(|m| m.castle.is_some());
         assert!(
             any_castle.is_none(),
             "no castles allowed while in check, got {any_castle:?}"
@@ -1342,14 +1438,18 @@ mod tests {
     fn cannot_castle_kingside_when_blocked() {
         let b = castling_board().set(square::F1, pc(Role::Bishop, Color::White));
         let p = pos_from(b);
-        let king_castle = p.valid_moves().find(|m| m.castle == Some(Side::King));
+        let king_castle = collect_valid(&p)
+            .into_iter()
+            .find(|m| m.castle == Some(Side::King));
         assert!(king_castle.is_none(), "bishop on F1 blocks kingside castle");
     }
 
     #[test]
     fn cannot_castle_without_rights() {
         let p = pos_from(castling_board()).with_castles(Castles::new(false, false, false, false));
-        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p)
+            .into_iter()
+            .find(|m| m.castle.is_some());
         assert!(any_castle.is_none());
     }
 
@@ -1362,7 +1462,9 @@ mod tests {
         let p = Position::new()
             .with_board(castling_board())
             .with_history(history);
-        let any_castle = p.valid_moves().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p)
+            .into_iter()
+            .find(|m| m.castle.is_some());
         assert!(any_castle.is_none(), "no castle when rooks have moved");
     }
 
@@ -1394,10 +1496,11 @@ mod tests {
     #[test]
     fn valid_moves_at_matches_filter_on_start() {
         let p = Position::new();
+        let all = collect_valid(&p);
         for i in 0u8..64 {
             let s = Square(i);
-            let direct = p.valid_moves_at(s).count();
-            let filtered = p.valid_moves().filter(|m| m.orig == s).count();
+            let direct = collect_at(&p, s).len();
+            let filtered = all.iter().filter(|m| m.orig == s).count();
             assert_eq!(direct, filtered, "mismatch at square {s}");
         }
     }
@@ -1507,17 +1610,25 @@ mod proptests {
         b
     }
 
-    /// Count pseudo-legal moves from `it` that would not leave us in check,
-    /// using apply-to-working-board for legality.
-    fn legal_count(p: &Position, it: impl Iterator<Item = Move>) -> usize {
-        it.filter(|m| !after_board(p, m).is_check(p.color)).count()
+    /// Collect every legal move from `p` into a fresh `Vec`.
+    fn collect_valid(p: &Position) -> Vec<Move> {
+        let mut buf = Vec::new();
+        p.valid_moves(&mut buf);
+        buf
+    }
+
+    /// Count moves in `buf` that would not leave us in check after apply.
+    fn legal_count(p: &Position, buf: &[Move]) -> usize {
+        buf.iter()
+            .filter(|m| !after_board(p, m).is_check(p.color))
+            .count()
     }
 
     proptest! {
         // Every generated move is for a piece of the side to move.
         #[test]
         fn move_color_matches_side_to_move(p in random_position()) {
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 prop_assert_eq!(m.piece.color, p.color());
             }
         }
@@ -1525,7 +1636,7 @@ mod proptests {
         // No null moves.
         #[test]
         fn move_orig_not_equal_dest(p in random_position()) {
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 prop_assert_ne!(m.orig, m.dest);
             }
         }
@@ -1533,7 +1644,7 @@ mod proptests {
         // The origin square holds the piece claimed by the move.
         #[test]
         fn move_origin_holds_claimed_piece(p in random_position()) {
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 prop_assert_eq!(p.board().piece_at(m.orig), Some(m.piece));
             }
         }
@@ -1541,7 +1652,7 @@ mod proptests {
         // After-board has exactly one king of each color (king cannot be captured).
         #[test]
         fn after_board_keeps_both_kings(p in random_position()) {
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 let after = after_board(&p, &m);
                 let white_kings = piece_count(&after, Role::King, Color::White);
                 let black_kings = piece_count(&after, Role::King, Color::Black);
@@ -1553,7 +1664,7 @@ mod proptests {
         // After-board satisfies bitboard invariants.
         #[test]
         fn after_board_invariants(p in random_position()) {
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 let b = after_board(&p, &m);
                 let white = b.bycolor(Color::White);
                 let black = b.bycolor(Color::Black);
@@ -1565,46 +1676,60 @@ mod proptests {
         // Move generation is deterministic.
         #[test]
         fn deterministic(p in random_position()) {
-            let a: Vec<Move> = p.valid_moves().collect();
-            let b: Vec<Move> = p.valid_moves().collect();
-            prop_assert_eq!(a, b);
+            prop_assert_eq!(collect_valid(&p), collect_valid(&p));
         }
 
         // `valid_moves()` equals the disjoint union of per-piece-type generators filtered by legality.
         #[test]
         fn partition_matches_per_piece_generators(p in random_position()) {
-            let total = p.valid_moves().count();
-            let sum = legal_count(&p, p.pawn_moves())
-                + legal_count(&p, p.enpassant_moves())
-                + legal_count(&p, p.king_moves())
-                + legal_count(&p, p.knight_moves())
-                + legal_count(&p, p.bishop_moves())
-                + legal_count(&p, p.rook_moves())
-                + legal_count(&p, p.queen_moves());
+            let total = collect_valid(&p).len();
+            let mut pawns = Vec::new();
+            p.pawn_moves(&mut pawns);
+            let mut ep = Vec::new();
+            p.enpassant_moves(&mut ep);
+            let mut king = Vec::new();
+            p.king_moves(&mut king);
+            let mut knight = Vec::new();
+            p.knight_moves(&mut knight);
+            let mut bishop = Vec::new();
+            p.bishop_moves(&mut bishop);
+            let mut rook = Vec::new();
+            p.rook_moves(&mut rook);
+            let mut queen = Vec::new();
+            p.queen_moves(&mut queen);
+            let sum = legal_count(&p, &pawns)
+                + legal_count(&p, &ep)
+                + legal_count(&p, &king)
+                + legal_count(&p, &knight)
+                + legal_count(&p, &bishop)
+                + legal_count(&p, &rook)
+                + legal_count(&p, &queen);
             prop_assert_eq!(total, sum);
         }
 
         // `valid_moves_at(s)` is equivalent to filtering `valid_moves()` by `orig==s`.
         #[test]
         fn valid_moves_at_filter_consistent(p in random_position()) {
+            let all = collect_valid(&p);
             for i in 0u8..64 {
                 let s = Square(i);
-                let direct = p.valid_moves_at(s).count();
-                let filtered = p.valid_moves().filter(|m| m.orig == s).count();
-                prop_assert_eq!(direct, filtered);
+                let mut buf = Vec::new();
+                p.valid_moves_at(s, &mut buf);
+                let filtered = all.iter().filter(|m| m.orig == s).count();
+                prop_assert_eq!(buf.len(), filtered);
             }
         }
 
-        // has_moves agrees with `valid_moves().next().is_some()`.
+        // has_moves agrees with non-empty valid_moves.
         #[test]
         fn has_moves_iff_any(p in random_position()) {
-            prop_assert_eq!(p.has_moves(), p.valid_moves().next().is_some());
+            prop_assert_eq!(p.has_moves(), !collect_valid(&p).is_empty());
         }
 
         // `mve()` with a listed move succeeds and flips color.
         #[test]
         fn mve_with_listed_move_works(p in random_position()) {
-            if let Some(m) = p.valid_moves().next() {
+            if let Some(m) = collect_valid(&p).into_iter().next() {
                 let expected_after = after_board(&p, &m);
                 let next = p.clone().mve(m.orig, m.dest, m.promotion).expect("listed move must succeed");
                 prop_assert_eq!(next.color(), p.color().opponent());
@@ -1618,7 +1743,7 @@ mod proptests {
         #[test]
         fn promotion_only_on_opponent_back_rank(p in random_position()) {
             let opp_back = p.color().opponent().back_rank();
-            for m in p.valid_moves() {
+            for m in collect_valid(&p) {
                 if m.promotion.is_some() {
                     prop_assert_eq!(m.dest.rank(), opp_back);
                     prop_assert_eq!(m.piece.role, Role::Pawn);
@@ -1630,7 +1755,7 @@ mod proptests {
         #[test]
         fn valid_moves_does_not_mutate(p in random_position()) {
             let before = p.clone();
-            let _: Vec<Move> = p.valid_moves().collect();
+            let _ = collect_valid(&p);
             prop_assert_eq!(p, before);
         }
 
@@ -1638,8 +1763,7 @@ mod proptests {
         #[test]
         fn make_unmake_round_trip(p in random_position()) {
             let before = p.clone();
-            let moves: Vec<Move> = p.valid_moves().collect();
-            for m in moves {
+            for m in collect_valid(&p) {
                 let mut q = before.clone();
                 let undo = q.make(&m);
                 q.unmake(undo);
@@ -1650,8 +1774,7 @@ mod proptests {
         // make produces the same end state as the persistent `mve` for every legal move.
         #[test]
         fn make_matches_persistent_mve(p in random_position()) {
-            let moves: Vec<Move> = p.valid_moves().collect();
-            for m in moves {
+            for m in collect_valid(&p) {
                 let persistent = p.clone().mve(m.orig, m.dest, m.promotion).unwrap();
                 let mut mutable = p.clone();
                 mutable.make(&m);

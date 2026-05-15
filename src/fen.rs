@@ -339,7 +339,9 @@ mod tests {
         let p = parse("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1").unwrap();
         assert_eq!(p.enpassant_square(), Some(square::D6));
         // And the legal en-passant capture is actually emitted.
-        assert_eq!(p.enpassant_moves().count(), 1);
+        let mut buf: Vec<crate::mve::Move> = Vec::new();
+        p.enpassant_moves(&mut buf);
+        assert_eq!(buf.len(), 1);
     }
 
     #[test]
@@ -347,7 +349,9 @@ mod tests {
         // White just played e2→e4; target is e3.
         let p = parse("4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 1").unwrap();
         assert_eq!(p.enpassant_square(), Some(square::E3));
-        assert_eq!(p.enpassant_moves().count(), 1);
+        let mut buf: Vec<crate::mve::Move> = Vec::new();
+        p.enpassant_moves(&mut buf);
+        assert_eq!(buf.len(), 1);
     }
 
     #[test]

@@ -366,10 +366,10 @@ fn render_info(app: &App, area: Rect, buf: &mut Buffer) {
     ))];
     // Group legal moves into columns with a max height of 40 rows
     let mut move_rows: Vec<String> = Vec::new();
-    let mut valid_moves: Vec<_> = app
-        .game
-        .position()
-        .valid_moves()
+    let mut move_buf: Vec<ruchess::mve::Move> = Vec::with_capacity(256);
+    app.game.position().valid_moves(&mut move_buf);
+    let mut valid_moves: Vec<String> = move_buf
+        .iter()
         .map(|m| format!("{}{}", m.orig, m.dest))
         .collect();
     valid_moves.sort_unstable();

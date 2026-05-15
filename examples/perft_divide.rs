@@ -3,16 +3,21 @@
 //! Usage:
 //!     cargo run --release --example perft_divide -- "<FEN>" <depth>
 
-use ruchess::{fen, mve::Move, position::Position};
+use ruchess::{
+    fen,
+    mve::Move,
+    position::{Position, MAX_MOVES},
+};
 
 fn perft(pos: &mut Position, depth: u32) -> u64 {
     if depth == 0 {
         return 1;
     }
+    let mut moves: Vec<Move> = Vec::with_capacity(MAX_MOVES);
+    pos.valid_moves(&mut moves);
     if depth == 1 {
-        return pos.valid_moves().count() as u64;
+        return moves.len() as u64;
     }
-    let moves: Vec<Move> = pos.valid_moves().collect();
     let mut total: u64 = 0;
     for m in moves {
         let undo = pos.make(&m);
@@ -43,7 +48,8 @@ fn main() {
         .expect("FEN should parse")
         .without_repetition();
 
-    let moves: Vec<Move> = pos.valid_moves().collect();
+    let mut moves: Vec<Move> = Vec::with_capacity(MAX_MOVES);
+    pos.valid_moves(&mut moves);
     let mut rows: Vec<(String, u64)> = moves
         .into_iter()
         .map(|m| {
