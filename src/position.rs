@@ -18,8 +18,7 @@
 //! # use ruchess::mve::Move;
 //! let standard = Position::new();
 //! assert_eq!(standard.color(), Color::White);
-//! let mut moves: Vec<Move> = Vec::with_capacity(256);
-//! standard.valid_moves(&mut moves);
+//! let moves = standard.valid_moves();
 //! assert_eq!(moves.len(), 20);
 //!
 //! let black_to_move = Position::new().with_color(Color::Black);
@@ -28,8 +27,8 @@
 //!
 //! ## Generating moves
 //!
-//! [`Position::valid_moves`] appends every legal move to a caller-owned
-//! buffer; [`Position::mve`] plays one and returns the resulting position:
+//! [`Position::valid_moves`] returns every legal move;
+//! [`Position::mve`] plays one and returns the resulting position:
 //!
 //! ```
 //! # use ruchess::position::Position;
@@ -43,7 +42,7 @@
 //!
 //! Each move type also has a dedicated generator
 //! ([`Position::pawn_moves`], [`Position::knight_moves`], …) that appends
-//! into the same buffer; together they partition [`Position::valid_moves`].
+//! into a caller owned buffer; together they partition [`Position::valid_moves`].
 
 use crate::{
     attacks::ATTACKS,
@@ -99,8 +98,7 @@ impl Position {
     /// let p = Position::new();
     /// assert_eq!(p.color(), Color::White);
     /// assert!(!p.is_check());
-    /// let mut moves: Vec<Move> = Vec::new();
-    /// p.valid_moves(&mut moves);
+    /// let moves = p.valid_moves();
     /// assert_eq!(moves.len(), 20);
     /// ```
     pub fn new() -> Self {
@@ -283,8 +281,7 @@ impl Position {
         dest: Square,
         promotion: Option<PromotableRole>,
     ) -> Option<Self> {
-        let mut buf: Vec<Move> = Vec::with_capacity(MAX_MOVES);
-        self.valid_moves(&mut buf);
+        let buf = self.valid_moves();
         let mve = *buf
             .iter()
             .find(|m| m.orig == orig && m.dest == dest && m.promotion == promotion)?;
@@ -308,8 +305,7 @@ impl Position {
     /// # use ruchess::color::Color;
     /// # use ruchess::mve::Move;
     /// let mut p = Position::new();
-    /// let mut moves: Vec<Move> = Vec::new();
-    /// p.valid_moves(&mut moves);
+    /// let moves = p.valid_moves();
     /// let m = moves[0];
     /// let undo = p.make(&m);
     /// assert_eq!(p.color(), Color::Black);
@@ -453,45 +449,33 @@ impl Position {
             .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color))
     }
 
-    /// Appends every legal move from this position to `buf`, across all
-    /// piece types.
+    /// Returns all valid moves in this position.
     ///
     /// Calls each per-piece-type generator ([`Self::pawn_moves`],
     /// [`Self::enpassant_moves`], [`Self::king_moves`], …) in a fixed order,
     /// then retains only those that satisfy check/pin legality.
     ///
-    /// Existing contents of `buf` are preserved; new moves are pushed onto
-    /// the end. A typical caller preallocates with [`MAX_MOVES`] capacity.
-    ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
-    /// # use ruchess::mve::Move;
-    /// let mut moves: Vec<Move> = Vec::with_capacity(256);
-    /// Position::new().valid_moves(&mut moves);
+    /// let moves = Position::new().valid_moves();
     /// assert_eq!(moves.len(), 20);
     /// ```
-    pub fn valid_moves(&self, buf: &mut Vec<Move>) {
-        let start = buf.len();
-        self.pawn_moves(buf);
-        self.enpassant_moves(buf);
-        self.king_moves(buf);
-        self.knight_moves(buf);
-        self.bishop_moves(buf);
-        self.rook_moves(buf);
-        self.queen_moves(buf);
+    pub fn valid_moves(&self) -> Vec<Move> {
+        let mut buf = Vec::with_capacity(MAX_MOVES);
+        self.pawn_moves(&mut buf);
+        self.enpassant_moves(&mut buf);
+        self.king_moves(&mut buf);
+        self.knight_moves(&mut buf);
+        self.bishop_moves(&mut buf);
+        self.rook_moves(&mut buf);
+        self.queen_moves(&mut buf);
 
         let ctx = LegalityContext::compute(self);
         let board = self.board;
         let color = self.color;
-        let mut write = start;
-        for read in start..buf.len() {
-            if ctx.is_legal(&buf[read], board, color) {
-                buf[write] = buf[read];
-                write += 1;
-            }
-        }
-        buf.truncate(write);
+        buf.retain(|m| ctx.is_legal(m, board, color));
+        buf
     }
 
     /// Returns `true` if at least one legal move exists from this position.
@@ -502,12 +486,10 @@ impl Position {
     /// assert!(Position::new().has_moves());
     /// ```
     pub fn has_moves(&self) -> bool {
-        let mut buf: Vec<Move> = Vec::with_capacity(MAX_MOVES);
-        self.valid_moves(&mut buf);
-        !buf.is_empty()
+        !self.valid_moves().is_empty()
     }
 
-    /// Appends every legal move originating from `orig` to `buf`.
+    /// Returns every legal move originating from `orig` to `buf`.
     ///
     /// # Example
     /// ```
@@ -515,26 +497,18 @@ impl Position {
     /// # use ruchess::square;
     /// # use ruchess::mve::Move;
     /// let p = Position::new();
-    /// let mut moves: Vec<Move> = Vec::new();
     /// // The E2 pawn has two pushes (one and two squares).
-    /// p.valid_moves_at(square::E2, &mut moves);
+    /// let moves = p.valid_moves_at(square::E2);
     /// assert_eq!(moves.len(), 2);
-    /// moves.clear();
+    ///
     /// // The A1 rook is locked in by its own pieces.
-    /// p.valid_moves_at(square::A1, &mut moves);
+    /// let moves = p.valid_moves_at(square::A1);
     /// assert_eq!(moves.len(), 0);
     /// ```
-    pub fn valid_moves_at(&self, orig: Square, buf: &mut Vec<Move>) {
-        let start = buf.len();
-        self.valid_moves(buf);
-        let mut write = start;
-        for read in start..buf.len() {
-            if buf[read].orig == orig {
-                buf[write] = buf[read];
-                write += 1;
-            }
-        }
-        buf.truncate(write);
+    pub fn valid_moves_at(&self, orig: Square) -> Vec<Move> {
+        let mut buf = self.valid_moves();
+        buf.retain(|m| m.orig == orig);
+        buf
     }
 
     /// Appends all pseudo-legal pawn moves to `buf`: pushes, double pushes,
@@ -1118,16 +1092,12 @@ mod tests {
 
     /// Test helper: collect every legal move into a fresh `Vec`.
     fn collect_valid(p: &Position) -> Vec<Move> {
-        let mut buf = Vec::new();
-        p.valid_moves(&mut buf);
-        buf
+        p.valid_moves()
     }
 
     /// Test helper: collect every legal move with `orig == s` into a fresh `Vec`.
     fn collect_at(p: &Position, s: Square) -> Vec<Move> {
-        let mut buf = Vec::new();
-        p.valid_moves_at(s, &mut buf);
-        buf
+        p.valid_moves_at(s)
     }
 
     // ── Starting position sanity ─────────────────────────────────────────
@@ -1425,9 +1395,7 @@ mod tests {
             p.is_check(),
             "white king on E1 is in check from black Q on E4"
         );
-        let any_castle = collect_valid(&p)
-            .into_iter()
-            .find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
         assert!(
             any_castle.is_none(),
             "no castles allowed while in check, got {any_castle:?}"
@@ -1447,9 +1415,7 @@ mod tests {
     #[test]
     fn cannot_castle_without_rights() {
         let p = pos_from(castling_board()).with_castles(Castles::new(false, false, false, false));
-        let any_castle = collect_valid(&p)
-            .into_iter()
-            .find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
         assert!(any_castle.is_none());
     }
 
@@ -1462,9 +1428,7 @@ mod tests {
         let p = Position::new()
             .with_board(castling_board())
             .with_history(history);
-        let any_castle = collect_valid(&p)
-            .into_iter()
-            .find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
         assert!(any_castle.is_none(), "no castle when rooks have moved");
     }
 
@@ -1612,9 +1576,7 @@ mod proptests {
 
     /// Collect every legal move from `p` into a fresh `Vec`.
     fn collect_valid(p: &Position) -> Vec<Move> {
-        let mut buf = Vec::new();
-        p.valid_moves(&mut buf);
-        buf
+        p.valid_moves()
     }
 
     /// Count moves in `buf` that would not leave us in check after apply.
@@ -1713,8 +1675,7 @@ mod proptests {
             let all = collect_valid(&p);
             for i in 0u8..64 {
                 let s = Square(i);
-                let mut buf = Vec::new();
-                p.valid_moves_at(s, &mut buf);
+                let buf = p.valid_moves_at(s);
                 let filtered = all.iter().filter(|m| m.orig == s).count();
                 prop_assert_eq!(buf.len(), filtered);
             }

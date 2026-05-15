@@ -6,11 +6,7 @@
 //!     cargo run --release --example perft -- 5      # cap max depth at 5
 //!     cargo run --release --example perft -- start  # only the start position
 
-use ruchess::{
-    fen,
-    mve::Move,
-    position::{Position, MAX_MOVES},
-};
+use ruchess::{fen, position::Position};
 use std::time::{Duration, Instant};
 
 struct TestPosition<'a> {
@@ -82,8 +78,7 @@ struct Mismatch {
 }
 
 fn perft(pos: &mut Position, depth: u32) -> u64 {
-    let mut moves: Vec<Move> = Vec::with_capacity(MAX_MOVES);
-    pos.valid_moves(&mut moves);
+    let moves = pos.valid_moves();
 
     if depth == 1 {
         return moves.len() as u64;
