@@ -50,13 +50,11 @@ impl Uci {
     /// # use ruchess::piece::Piece;
     /// # use ruchess::role::Role;
     /// # use ruchess::color::Color;
-    /// # use ruchess::board::Board;
     /// # use ruchess::square;
     /// let m = Move::quiet(
     ///     Piece { role: Role::Pawn, color: Color::White },
     ///     square::E2,
     ///     square::E4,
-    ///     Board::EMPTY,
     /// );
     /// let u = Uci::from_move(m);
     /// assert_eq!(u.orig, square::E2);

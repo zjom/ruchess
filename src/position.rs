@@ -336,8 +336,8 @@ impl Position {
             self.history.half_move_clock.incr()
         };
 
-        // Install the move's resulting board and advance the side/ply.
-        self.board = mve.after;
+        // Apply the move's bit toggles to the board, then advance side/ply.
+        apply_move(&mut self.board, mve);
         self.color = self.color.opponent();
         self.ply = self.ply.incr();
 
@@ -453,6 +453,9 @@ impl Position {
     /// assert_eq!(Position::new().valid_moves().count(), 20);
     /// ```
     pub fn valid_moves(&self) -> impl Iterator<Item = Move> {
+        let ctx = LegalityContext::compute(self);
+        let board = self.board;
+        let color = self.color;
         self.pawn_moves()
             .chain(self.enpassant_moves())
             .chain(self.king_moves())
@@ -460,7 +463,7 @@ impl Position {
             .chain(self.bishop_moves())
             .chain(self.rook_moves())
             .chain(self.queen_moves())
-            .filter(|m| !m.after.is_check(self.color))
+            .filter(move |m| ctx.is_legal(m, board, color))
     }
 
     /// Returns `true` if at least one legal move exists from this position.
@@ -717,7 +720,7 @@ impl Position {
         if !self.history.unmoved_rooks.contains(rook_from) {
             return None;
         }
-        let (king_to, rook_to, between, king_path) = castle_squares(self.color, side);
+        let (king_to, _rook_to, between, king_path) = castle_squares(self.color, side);
 
         if (self.board.occupied() & between).is_non_empty() {
             return None;
@@ -729,22 +732,7 @@ impl Position {
             return None;
         }
 
-        let king = Piece {
-            role: Role::King,
-            color: self.color,
-        };
-        let rook = Piece {
-            role: Role::Rook,
-            color: self.color,
-        };
-        let after = self
-            .board
-            .xor_piece(king_from, king)
-            .xor_piece(king_to, king)
-            .xor_piece(rook_from, rook)
-            .xor_piece(rook_to, rook);
-
-        Some(Move::castle(self.color, side, king_from, king_to, after))
+        Some(Move::castle(self.color, side, king_from, king_to))
     }
 
     /// Builds a non-special move (quiet push or simple capture) of `role`
@@ -756,25 +744,16 @@ impl Position {
             color: self.color,
         };
         if self.board.is_occupied(dest) {
-            // Captured piece's role is unknown; look it up. Color is fixed
-            // (our opponent — same-color captures are rejected just above).
-            let captured_role = self.board.role_at(dest)?;
             if self.board.color_at(dest) == Some(self.color) {
                 return None;
             }
-            let captured = Piece {
-                role: captured_role,
-                color: self.color.opponent(),
-            };
-            let after = self
-                .board
-                .xor_piece(dest, captured)
-                .xor_piece(orig, piece)
-                .xor_piece(dest, piece);
-            Some(Move::capture(piece, orig, dest, dest, after))
+            // Captured piece's color is fixed (our opponent — same-color
+            // captures rejected just above). Record the role so `make` can
+            // apply the capture without re-scanning the board.
+            let captured_role = self.board.role_at(dest)?;
+            Some(Move::capture(piece, orig, dest, dest, captured_role))
         } else {
-            let after = self.board.xor_piece(orig, piece).xor_piece(dest, piece);
-            Some(Move::quiet(piece, orig, dest, after))
+            Some(Move::quiet(piece, orig, dest))
         }
     }
 
@@ -782,20 +761,7 @@ impl Position {
     /// pawn sits on the file of `dest` and the rank of `orig`.
     fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
         let captured_sq = Square::from_file_and_rank(dest.file(), orig.rank());
-        let mover = Piece {
-            role: Role::Pawn,
-            color: self.color,
-        };
-        let captured = Piece {
-            role: Role::Pawn,
-            color: self.color.opponent(),
-        };
-        let after = self
-            .board
-            .xor_piece(captured_sq, captured)
-            .xor_piece(orig, mover)
-            .xor_piece(dest, mover);
-        Some(Move::enpassant(self.color, orig, dest, captured_sq, after))
+        Some(Move::enpassant(self.color, orig, dest, captured_sq))
     }
 
     /// Expands a single pawn step from `from` to `to` into the appropriate
@@ -809,48 +775,17 @@ impl Position {
     ) -> impl Iterator<Item = Move> + '_ {
         let is_promotion = from.rank() == self.color.seventh_rank();
 
-        let pawn = Piece {
-            role: Role::Pawn,
-            color: self.color,
-        };
-
         // Up to 4 promotion moves — empty if not a promoting rank.
+        let captured = if is_capture {
+            self.board.role_at(to).map(|r| (to, r))
+        } else {
+            None
+        };
         let promotions = is_promotion
             .then_some(PromotableRole::ROLES)
             .into_iter()
             .flatten()
-            .filter_map(move |r| {
-                let promoted_role = match r {
-                    PromotableRole::Queen => Role::Queen,
-                    PromotableRole::Rook => Role::Rook,
-                    PromotableRole::Bishop => Role::Bishop,
-                    PromotableRole::Knight => Role::Knight,
-                };
-                let promoted = Piece {
-                    role: promoted_role,
-                    color: self.color,
-                };
-                let (after, captured) = if is_capture {
-                    let captured_role = self.board.role_at(to)?;
-                    let captured = Piece {
-                        role: captured_role,
-                        color: self.color.opponent(),
-                    };
-                    let after = self
-                        .board
-                        .xor_piece(to, captured)
-                        .xor_piece(from, pawn)
-                        .xor_piece(to, promoted);
-                    (after, Some(to))
-                } else {
-                    let after = self
-                        .board
-                        .xor_piece(from, pawn)
-                        .xor_piece(to, promoted);
-                    (after, None)
-                };
-                Some(Move::promotion(self.color, from, to, r, captured, after))
-            });
+            .map(move |r| Move::promotion(self.color, from, to, r, captured));
 
         // 0 or 1 normal pawn moves — empty if it IS a promoting rank.
         let normal = (!is_promotion)
@@ -860,6 +795,181 @@ impl Position {
 
         promotions.chain(normal)
     }
+}
+
+/// Per-position legality info used to filter pseudo-legal moves without
+/// invoking make/is_check on every candidate.
+///
+/// Computed once per call to [`Position::valid_moves`]. Encodes:
+/// - `checkers`: bitboard of opponent pieces attacking our king.
+/// - `check_mask`: squares non-king pieces may target. All squares if not
+///   in check; squares between king and checker plus the checker's square
+///   on single check; empty on double check.
+/// - `is_double_check`: true if more than one attacker — only king moves
+///   are legal.
+/// - `pinned`: bitboard of our pieces pinned to the king by an opponent
+///   slider. A pinned piece may only move along the line through king and
+///   pinner.
+struct LegalityContext {
+    king_sq: Square,
+    check_mask: Bitboard,
+    is_double_check: bool,
+    pinned: Bitboard,
+}
+
+impl LegalityContext {
+    fn compute(pos: &Position) -> Self {
+        let board = &pos.board;
+        let us = pos.color;
+        let them = us.opponent();
+        let king_sq = board.king(us);
+
+        let checkers = board.attackers(king_sq, them);
+        let n_checkers = checkers.0.count_ones();
+
+        let (check_mask, is_double_check) = if n_checkers == 0 {
+            (Bitboard(!0u64), false)
+        } else if n_checkers == 1 {
+            // Single checker — non-king pieces must capture it or block.
+            let checker_sq = Square(checkers.0.trailing_zeros() as u8);
+            let between =
+                Bitboard(ATTACKS.between[king_sq.0 as usize][checker_sq.0 as usize]);
+            (between | Bitboard::from(checker_sq), false)
+        } else {
+            (Bitboard::EMPTY, true)
+        };
+
+        // Pin detection. For each opponent slider that lies on a ray from our
+        // king (ignoring blockers), check whether exactly one of our pieces
+        // sits between — that piece is pinned.
+        let occupied = board.occupied();
+        let our_pieces = board.bycolor(us);
+        let opp_rq = board.bycolor(them) & (board.rooks() | board.queens());
+        let opp_bq = board.bycolor(them) & (board.bishops() | board.queens());
+
+        let mut pinned = Bitboard::EMPTY;
+
+        // Rook-style pinners (rank/file rays).
+        let rook_candidates = ATTACKS.rook_attacks(king_sq, Bitboard::EMPTY) & opp_rq;
+        for pinner_sq in rook_candidates {
+            let between =
+                Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
+            let blockers = between & occupied;
+            if blockers.0.count_ones() == 1 && (blockers & our_pieces).is_non_empty() {
+                pinned = pinned | blockers;
+            }
+        }
+
+        // Bishop-style pinners (diagonal rays).
+        let bishop_candidates = ATTACKS.bishop_attacks(king_sq, Bitboard::EMPTY) & opp_bq;
+        for pinner_sq in bishop_candidates {
+            let between =
+                Bitboard(ATTACKS.between[king_sq.0 as usize][pinner_sq.0 as usize]);
+            let blockers = between & occupied;
+            if blockers.0.count_ones() == 1 && (blockers & our_pieces).is_non_empty() {
+                pinned = pinned | blockers;
+            }
+        }
+
+        Self {
+            king_sq,
+            check_mask,
+            is_double_check,
+            pinned,
+        }
+    }
+
+    /// Decides legality of a pseudo-legal `mve`. Mover color is `color` and
+    /// `board` is the pre-move board (used only for the en-passant fallback).
+    #[inline(always)]
+    fn is_legal(&self, mve: &Move, board: Board, color: Color) -> bool {
+        // King moves: `king_moves` already filters its own legality (lifts
+        // the king and tests attack). Castles are validated at gen time.
+        if mve.piece.role == Role::King {
+            return true;
+        }
+        // Under double check only the king can move.
+        if self.is_double_check {
+            return false;
+        }
+        // En passant: rare discovered-check via removed pawn on the same
+        // rank. Cheap fallback to make/is_check.
+        if mve.enpassant.is_some() {
+            let mut working = board;
+            apply_move(&mut working, mve);
+            return !working.is_check(color);
+        }
+        // Must land on a check-resolving square.
+        if !self.check_mask.is_set(mve.dest) {
+            return false;
+        }
+        // Pinned pieces may only move along the king–pinner line.
+        if self.pinned.is_set(mve.orig) {
+            let ray =
+                Bitboard(ATTACKS.rays[self.king_sq.0 as usize][mve.orig.0 as usize]);
+            return ray.is_set(mve.dest);
+        }
+        true
+    }
+}
+
+/// Applies `mve` to `board` in place by XOR-toggling exactly the affected
+/// bits. Used as the shared make-move primitive by [`Position::make`] and
+/// by the legality filter in [`Position::valid_moves`].
+///
+/// Symmetric: applying twice is a no-op. The move's `captured_role` field
+/// (filled at generation time) supplies enough information to apply captures
+/// without scanning the board.
+#[inline(always)]
+pub(crate) fn apply_move(board: &mut Board, mve: &Move) {
+    let mover = mve.piece;
+
+    if let Some(side) = mve.castle {
+        let color = mover.color;
+        let king = Piece {
+            role: Role::King,
+            color,
+        };
+        let rook = Piece {
+            role: Role::Rook,
+            color,
+        };
+        let rook_from = color.castle_square(side);
+        let (king_to, rook_to, _, _) = castle_squares(color, side);
+        board.toggle_piece(mve.orig, king);
+        board.toggle_piece(king_to, king);
+        board.toggle_piece(rook_from, rook);
+        board.toggle_piece(rook_to, rook);
+        return;
+    }
+
+    // Remove captured piece, if any.
+    if let (Some(cap_sq), Some(cap_role)) = (mve.capture, mve.captured_role) {
+        let captured = Piece {
+            role: cap_role,
+            color: mover.color.opponent(),
+        };
+        board.toggle_piece(cap_sq, captured);
+    }
+
+    // Lift the mover off its origin square.
+    board.toggle_piece(mve.orig, mover);
+
+    // Place the resulting piece at the destination: promoted role on a
+    // promotion, otherwise the mover itself.
+    let landed = match mve.promotion {
+        Some(p) => Piece {
+            role: match p {
+                PromotableRole::Queen => Role::Queen,
+                PromotableRole::Rook => Role::Rook,
+                PromotableRole::Bishop => Role::Bishop,
+                PromotableRole::Knight => Role::Knight,
+            },
+            color: mover.color,
+        },
+        None => mover,
+    };
+    board.toggle_piece(mve.dest, landed);
 }
 
 /// For `color` castling on `side`, returns
@@ -1392,6 +1502,20 @@ mod proptests {
         b.bypiece(Piece { role, color }).0.count_ones()
     }
 
+    /// Apply `mve` to a clone of `p`'s board and return it. Replaces the
+    /// pre-Phase-3 `m.after` field that move generation used to materialize.
+    fn after_board(p: &Position, mve: &Move) -> Board {
+        let mut b = *p.board();
+        apply_move(&mut b, mve);
+        b
+    }
+
+    /// Count pseudo-legal moves from `it` that would not leave us in check,
+    /// using apply-to-working-board for legality.
+    fn legal_count(p: &Position, it: impl Iterator<Item = Move>) -> usize {
+        it.filter(|m| !after_board(p, m).is_check(p.color)).count()
+    }
+
     proptest! {
         // Every generated move is for a piece of the side to move.
         #[test]
@@ -1421,8 +1545,9 @@ mod proptests {
         #[test]
         fn after_board_keeps_both_kings(p in random_position()) {
             for m in p.valid_moves() {
-                let white_kings = piece_count(&m.after, Role::King, Color::White);
-                let black_kings = piece_count(&m.after, Role::King, Color::Black);
+                let after = after_board(&p, &m);
+                let white_kings = piece_count(&after, Role::King, Color::White);
+                let black_kings = piece_count(&after, Role::King, Color::Black);
                 prop_assert_eq!(white_kings, 1);
                 prop_assert_eq!(black_kings, 1);
             }
@@ -1432,7 +1557,7 @@ mod proptests {
         #[test]
         fn after_board_invariants(p in random_position()) {
             for m in p.valid_moves() {
-                let b = m.after;
+                let b = after_board(&p, &m);
                 let white = b.bycolor(Color::White);
                 let black = b.bycolor(Color::Black);
                 prop_assert_eq!(b.occupied(), white | black);
@@ -1448,17 +1573,17 @@ mod proptests {
             prop_assert_eq!(a, b);
         }
 
-        // `valid_moves()` equals the disjoint union of per-piece-type generators filtered by `after.is_check`.
+        // `valid_moves()` equals the disjoint union of per-piece-type generators filtered by legality.
         #[test]
         fn partition_matches_per_piece_generators(p in random_position()) {
             let total = p.valid_moves().count();
-            let sum = p.pawn_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.enpassant_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.king_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.knight_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.bishop_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.rook_moves().filter(|m| !m.after.is_check(p.color)).count()
-                + p.queen_moves().filter(|m| !m.after.is_check(p.color)).count();
+            let sum = legal_count(&p, p.pawn_moves())
+                + legal_count(&p, p.enpassant_moves())
+                + legal_count(&p, p.king_moves())
+                + legal_count(&p, p.knight_moves())
+                + legal_count(&p, p.bishop_moves())
+                + legal_count(&p, p.rook_moves())
+                + legal_count(&p, p.queen_moves());
             prop_assert_eq!(total, sum);
         }
 
@@ -1483,10 +1608,11 @@ mod proptests {
         #[test]
         fn mve_with_listed_move_works(p in random_position()) {
             if let Some(m) = p.valid_moves().next() {
+                let expected_after = after_board(&p, &m);
                 let next = p.clone().mve(m.orig, m.dest, m.promotion).expect("listed move must succeed");
                 prop_assert_eq!(next.color(), p.color().opponent());
                 if m.promotion.is_none() {
-                    prop_assert_eq!(*next.board(), m.after);
+                    prop_assert_eq!(*next.board(), expected_after);
                 }
             }
         }

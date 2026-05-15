@@ -255,13 +255,11 @@ impl Castles {
     /// # use ruchess::role::Role;
     /// # use ruchess::color::Color;
     /// # use ruchess::square;
-    /// # use ruchess::board::Board;
     /// let castles = Castles::standard();
     /// let m = Move::quiet(
     ///     Piece { role: Role::King, color: Color::White },
     ///     square::E1,
     ///     square::E2,
-    ///     Board::EMPTY,
     /// );
     /// let updated = castles.update(&m);
     /// assert!(!updated.can(Color::White));
@@ -510,12 +508,7 @@ mod tests {
     }
 
     fn quiet(role: Role, color: Color) -> Move {
-        Move::quiet(
-            Piece { role, color },
-            square::E1,
-            square::E1,
-            Board::EMPTY,
-        )
+        Move::quiet(Piece { role, color }, square::E1, square::E1)
     }
 
     #[test]
@@ -527,13 +520,7 @@ mod tests {
 
     #[test]
     fn update_castle_clears_color() {
-        let m = Move::castle(
-            Color::Black,
-            Side::King,
-            square::E1,
-            square::E1,
-            Board::EMPTY,
-        );
+        let m = Move::castle(Color::Black, Side::King, square::E1, square::E1);
         let c = Castles::standard().update(&m);
         assert!(c.can(Color::White));
         assert!(!c.can(Color::Black));

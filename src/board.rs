@@ -217,24 +217,22 @@ impl Board {
     }
 
     /// Toggles (XORs) the bits for `piece` at `sq` in the role, color, and
-    /// occupied bitboards.
+    /// occupied bitboards, mutating the board in place.
     ///
-    /// This is the make-move primitive used by the move generator when the
-    /// piece at the square is already known by construction: it skips the
-    /// `find` scan that [`Board::pop`] and [`Board::set`] perform.
+    /// This is the make-move primitive used by the move generator and by
+    /// the legality filter: the piece at the square is already known by
+    /// construction, so it skips the `find` scan that [`Board::pop`] and
+    /// [`Board::set`] perform. Symmetric — applying twice is a no-op.
     ///
-    /// The caller is responsible for correctness — if `sq` was empty, the
+    /// The caller is responsible for correctness. If `sq` was empty, the
     /// piece is added; if `sq` held exactly `piece`, the piece is removed.
     /// Calling with a mismatched role or color produces an invalid board.
-    #[inline]
-    #[must_use]
-    pub(crate) fn xor_piece(self, sq: Square, piece: Piece) -> Self {
+    #[inline(always)]
+    pub(crate) fn toggle_piece(&mut self, sq: Square, piece: Piece) {
         let bb = Bitboard::from(sq);
-        Self {
-            by_role: self.by_role.update(piece.role, |x| x ^ bb),
-            by_color: self.by_color.update(piece.color, |x| x ^ bb),
-            occupied: self.occupied ^ bb,
-        }
+        self.by_role = self.by_role.update(piece.role, |x| x ^ bb);
+        self.by_color = self.by_color.update(piece.color, |x| x ^ bb);
+        self.occupied = self.occupied ^ bb;
     }
 
     /// Returns a new [`Board`] with piece at `sq` removed, returning it if any.

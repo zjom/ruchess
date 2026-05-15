@@ -32,7 +32,6 @@
 //! # use ruchess::unmoved_rooks::UnmovedRooks;
 //! # use ruchess::square;
 //! # use ruchess::mve::Move;
-//! # use ruchess::board::Board;
 //! # use ruchess::piece::Piece;
 //! # use ruchess::role::Role;
 //! # use ruchess::color::Color;
@@ -45,12 +44,10 @@
 //! assert!(ur.contains(square::H8));
 //!
 //! // Suppose white moves the rook from A1 to A3
-//! # let board = Board::new();
 //! # let m = Move::quiet(
 //! #     Piece { role: Role::Rook, color: Color::White },
 //! #     square::A1,
 //! #     square::A3,
-//! #     board,
 //! # );
 //! ur = ur.update(&m);
 //!
@@ -122,18 +119,15 @@ impl UnmovedRooks {
     /// ```
     /// # use ruchess::unmoved_rooks::UnmovedRooks;
     /// # use ruchess::mve::Move;
-    /// # use ruchess::board::Board;
     /// # use ruchess::square;
     /// # use ruchess::piece::Piece;
     /// # use ruchess::role::Role;
     /// # use ruchess::color::Color;
     /// let ur = UnmovedRooks::standard();
-    /// # let board = Board::new();
     /// # let m = Move::quiet(
     /// #     Piece { role: Role::Rook, color: Color::White },
     /// #     square::A1,
     /// #     square::A3,
-    /// #     board,
     /// # );
     /// let updated = ur.update(&m);
     /// assert!(!updated.contains(square::A1));

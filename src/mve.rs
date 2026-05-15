@@ -1,8 +1,9 @@
 //! # Moves
 //!
-//! A [`Move`] is a fully-decorated chess move: the piece, the squares
-//! involved, any capture, promotion, castling, or en-passant flags, and the
-//! [`Board`]s before and after the move is applied.
+//! A [`Move`] is a chess move spec: piece, orig/dest squares, and flags
+//! capturing any capture, promotion, castling, or en-passant side effects.
+//! It does not carry the resulting board — apply it via
+//! [`Position::make`](crate::position::Position::make) to obtain that.
 //!
 //! Construct moves through the named constructors ([`Move::quiet`],
 //! [`Move::capture`], [`Move::castle`], [`Move::enpassant`],
@@ -10,7 +11,6 @@
 //! mutually-exclusive flag fields correctly.
 
 use crate::{
-    board::Board,
     color::Color,
     piece::Piece,
     role::{PromotableRole, Role},
@@ -18,11 +18,16 @@ use crate::{
     square::Square,
 };
 
-/// A chess move together with all of its side effects.
+/// A chess move spec.
 ///
 /// Each move is either a quiet push, a capture, a castle, an en-passant
 /// capture, or a promotion. The flag fields are mutually exclusive — at
 /// most one of `castle`, `enpassant`, and `promotion` is `Some`.
+///
+/// `Move` is intentionally small (~12 bytes) so a generated move list fits
+/// comfortably on the stack. To compute the resulting board, apply the move
+/// to a [`Position`](crate::position::Position) via
+/// [`Position::make`](crate::position::Position::make).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Move {
     /// The piece making the move (color is the side making the move).
@@ -34,28 +39,30 @@ pub struct Move {
     /// The square of the captured piece, if any. For en-passant this is the
     /// captured pawn's actual square (not `dest`).
     pub capture: Option<Square>,
+    /// The role of the captured piece, paired with `capture`. Set whenever
+    /// `capture` is `Some`; lets the make-move path apply the capture
+    /// without re-scanning the board.
+    pub captured_role: Option<Role>,
     /// The role this pawn promotes to, if the move is a promotion.
     pub promotion: Option<PromotableRole>,
     /// The castling side, if the move is a castle.
     pub castle: Option<Side>,
     /// `Some(())` if the move is an en-passant capture.
     pub enpassant: Option<()>,
-    /// The board state resulting from applying this move.
-    pub after: Board,
 }
 
 impl Move {
     /// Builds a quiet (non-capturing, non-special) move from `orig` to `dest`.
-    pub fn quiet(piece: Piece, orig: Square, dest: Square, after: Board) -> Self {
+    pub fn quiet(piece: Piece, orig: Square, dest: Square) -> Self {
         Self {
             piece,
             orig,
             dest,
             capture: None,
+            captured_role: None,
             promotion: None,
             castle: None,
             enpassant: None,
-            after,
         }
     }
 
@@ -66,31 +73,25 @@ impl Move {
         orig: Square,
         dest: Square,
         captured: Square,
-        after: Board,
+        captured_role: Role,
     ) -> Self {
         Self {
             piece,
             orig,
             dest,
             capture: Some(captured),
+            captured_role: Some(captured_role),
             promotion: None,
             castle: None,
             enpassant: None,
-            after,
         }
     }
 
     /// Builds a castling move on `side` for `color`.
     ///
-    /// `king_from`/`king_to` describe the king's motion; the rook movement is
-    /// implied by the [`Side`] and is recorded in `after`.
-    pub fn castle(
-        color: Color,
-        side: Side,
-        king_from: Square,
-        king_to: Square,
-        after: Board,
-    ) -> Self {
+    /// `king_from`/`king_to` describe the king's motion; the rook movement
+    /// is implied by the [`Side`].
+    pub fn castle(color: Color, side: Side, king_from: Square, king_to: Square) -> Self {
         Self {
             piece: Piece {
                 role: Role::King,
@@ -99,22 +100,16 @@ impl Move {
             orig: king_from,
             dest: king_to,
             capture: None,
+            captured_role: None,
             promotion: None,
             castle: Some(side),
             enpassant: None,
-            after,
         }
     }
 
     /// Builds an en-passant capture by `color`'s pawn from `orig` to `dest`,
     /// with the opposing pawn removed at `captured`.
-    pub fn enpassant(
-        color: Color,
-        orig: Square,
-        dest: Square,
-        captured: Square,
-        after: Board,
-    ) -> Self {
+    pub fn enpassant(color: Color, orig: Square, dest: Square, captured: Square) -> Self {
         Self {
             piece: Piece {
                 role: Role::Pawn,
@@ -123,24 +118,27 @@ impl Move {
             orig,
             dest,
             capture: Some(captured),
+            captured_role: Some(Role::Pawn),
             promotion: None,
             castle: None,
             enpassant: Some(()),
-            after,
         }
     }
 
-    /// Builds a promotion move. `captured` is `Some(square)` when the
-    /// promotion is also a capture (a diagonal pawn move into the back rank),
+    /// Builds a promotion move. `captured` is `Some((sq, role))` when the
+    /// promotion is also a capture (a diagonal pawn move onto the back rank),
     /// otherwise `None` for a straight push.
     pub fn promotion(
         color: Color,
         orig: Square,
         dest: Square,
         role: PromotableRole,
-        captured: Option<Square>,
-        after: Board,
+        captured: Option<(Square, Role)>,
     ) -> Self {
+        let (capture, captured_role) = match captured {
+            Some((sq, r)) => (Some(sq), Some(r)),
+            None => (None, None),
+        };
         Self {
             piece: Piece {
                 role: Role::Pawn,
@@ -148,11 +146,11 @@ impl Move {
             },
             orig,
             dest,
-            capture: captured,
+            capture,
+            captured_role,
             promotion: Some(role),
             castle: None,
             enpassant: None,
-            after,
         }
     }
 }
