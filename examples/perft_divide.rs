@@ -3,26 +3,23 @@
 //! Usage:
 //!     cargo run --release --example perft_divide -- "<FEN>" <depth>
 
-use ruchess::{fen, position::Position};
+use ruchess::{fen, mve::Move, position::Position};
 
-fn perft(pos: &Position, depth: u32) -> u64 {
+fn perft(pos: &mut Position, depth: u32) -> u64 {
     if depth == 0 {
         return 1;
     }
     if depth == 1 {
         return pos.valid_moves().count() as u64;
     }
-    let history = pos.history().clone();
-    pos.valid_moves()
-        .map(|m| {
-            let next = pos
-                .clone()
-                .with_board(m.after)
-                .with_history(history.clone().update(pos, &m))
-                .change_color();
-            perft(&next, depth - 1)
-        })
-        .sum()
+    let moves: Vec<Move> = pos.valid_moves().collect();
+    let mut total: u64 = 0;
+    for m in moves {
+        let undo = pos.make(&m);
+        total += perft(pos, depth - 1);
+        pos.unmake(undo);
+    }
+    total
 }
 
 fn fmt_move(m: &ruchess::mve::Move) -> String {
@@ -45,21 +42,19 @@ fn main() {
     let pos = fen::parse(fen_str)
         .expect("FEN should parse")
         .without_repetition();
-    let history = pos.history().clone();
 
-    let mut rows: Vec<(String, u64)> = pos
-        .valid_moves()
+    let moves: Vec<Move> = pos.valid_moves().collect();
+    let mut rows: Vec<(String, u64)> = moves
+        .into_iter()
         .map(|m| {
-            let next = pos
-                .clone()
-                .with_board(m.after)
-                .with_history(history.clone().update(&pos, &m))
-                .change_color();
+            let mut working = pos.clone();
+            let undo = working.make(&m);
             let count = if depth == 0 {
                 1
             } else {
-                perft(&next, depth - 1)
+                perft(&mut working, depth - 1)
             };
+            working.unmake(undo);
             (fmt_move(&m), count)
         })
         .collect();

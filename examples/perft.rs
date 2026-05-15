@@ -8,7 +8,7 @@
 
 use std::time::Instant;
 
-use ruchess::{fen, position::Position};
+use ruchess::{fen, mve::Move, position::Position};
 
 /// (name, FEN, expected node counts for depths 1..=N)
 const POSITIONS: &[(&str, &str, &[u64])] = &[
@@ -44,21 +44,21 @@ const POSITIONS: &[(&str, &str, &[u64])] = &[
     ),
 ];
 
-fn perft(pos: &Position, depth: u32) -> u64 {
+fn perft(pos: &mut Position, depth: u32) -> u64 {
     if depth == 1 {
         return pos.valid_moves().count() as u64;
     }
-    let history = pos.history().clone();
-    pos.valid_moves()
-        .map(|m| {
-            let next = pos
-                .clone()
-                .with_board(m.after)
-                .with_history(history.clone().update(pos, &m))
-                .change_color();
-            perft(&next, depth - 1)
-        })
-        .sum()
+    // Realistic max moves per position is ~218; 256 is a safe upper bound and
+    // avoids reallocation under push.
+    let mut moves: Vec<Move> = Vec::with_capacity(256);
+    moves.extend(pos.valid_moves());
+    let mut total: u64 = 0;
+    for m in &moves {
+        let undo = pos.make(m);
+        total += perft(pos, depth - 1);
+        pos.unmake(undo);
+    }
+    total
 }
 
 fn main() {
@@ -94,7 +94,8 @@ fn main() {
         for d in 1..=cap {
             let want = expected[(d - 1) as usize];
             let start = Instant::now();
-            let got = perft(&pos, d);
+            let mut working = pos.clone();
+            let got = perft(&mut working, d);
             let elapsed = start.elapsed();
             let ms = elapsed.as_millis().max(1);
             let mnps = (got as f64) / (elapsed.as_secs_f64().max(1e-9) * 1e6);
