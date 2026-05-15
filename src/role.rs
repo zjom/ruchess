@@ -320,6 +320,29 @@ impl<T> ByRole<T> {
         }
     }
 
+    /// Updates the value for the given [`Role`] using a function in place.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::role::{ByRole, Role};
+    /// let mut container = ByRole::new(1, 1, 1, 1, 1, 1);
+    /// container.update_mut(Role::Rook, |v| *v += 4);
+    /// assert_eq!(container.rook, 5);
+    /// ```
+    pub fn update_mut<F>(&mut self, r: Role, mut f: F)
+    where
+        F: FnMut(&mut T),
+    {
+        match r {
+            Role::Pawn => f(&mut self.pawn),
+            Role::Knight => f(&mut self.knight),
+            Role::Bishop => f(&mut self.bishop),
+            Role::Rook => f(&mut self.rook),
+            Role::Queen => f(&mut self.queen),
+            Role::King => f(&mut self.king),
+        };
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples

@@ -253,6 +253,25 @@ impl<T> ByColor<T> {
         }
     }
 
+    /// Updates the value for the given [`Color`] using a function in place.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::color::{ByColor, Color};
+    /// let mut container = ByColor::new(10, 20);
+    /// container.update_mut(Color::Black, |v| *v += 5);
+    /// assert_eq!(container.black, 25);
+    /// ```
+    pub fn update_mut<F>(&mut self, c: Color, mut f: F)
+    where
+        F: FnMut(&mut T),
+    {
+        match c {
+            Color::White => f(&mut self.white),
+            Color::Black => f(&mut self.black),
+        };
+    }
+
     /// Executes some side effect `f` for each item.
     ///
     /// # Examples

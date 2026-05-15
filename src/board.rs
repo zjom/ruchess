@@ -216,6 +216,13 @@ impl Board {
         }
     }
 
+    pub fn set_mut(&mut self, sq: Square, p: Piece) {
+        let _ = self.pop_mut(sq);
+        self.by_role.update_mut(p.role, |bb| bb.set_mut(sq));
+        self.by_color.update_mut(p.color, |bb| bb.set_mut(sq));
+        self.occupied.set_mut(sq);
+    }
+
     /// Toggles (XORs) the bits for `piece` at `sq` in the role, color, and
     /// occupied bitboards, mutating the board in place.
     ///
@@ -230,9 +237,9 @@ impl Board {
     #[inline(always)]
     pub(crate) fn toggle_piece(&mut self, sq: Square, piece: Piece) {
         let bb = Bitboard::from(sq);
-        self.by_role = self.by_role.update(piece.role, |x| x ^ bb);
-        self.by_color = self.by_color.update(piece.color, |x| x ^ bb);
-        self.occupied = self.occupied ^ bb;
+        self.by_role.update_mut(piece.role, |x| x.toggle_mut(bb));
+        self.by_color.update_mut(piece.color, |x| x.toggle_mut(bb));
+        self.occupied.toggle_mut(bb);
     }
 
     /// Returns a new [`Board`] with piece at `sq` removed, returning it if any.
@@ -259,6 +266,18 @@ impl Board {
             };
 
             (board, Some(piece))
+        }
+    }
+
+    pub fn pop_mut(&mut self, sq: Square) -> Option<Piece> {
+        if !self.is_occupied(sq) {
+            None
+        } else {
+            let piece = self.piece_at(sq).unwrap();
+            self.by_role.update_mut(piece.role, |bb| bb.unset_mut(sq));
+            self.by_color.update_mut(piece.color, |bb| bb.unset_mut(sq));
+            self.occupied.unset_mut(sq);
+            Some(piece)
         }
     }
 

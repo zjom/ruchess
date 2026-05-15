@@ -164,6 +164,24 @@ impl Bitboard {
         self ^ other
     }
 
+    /// Flips the bits specified in `other` in place.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let mut a = Bitboard(0b1100);
+    /// let b = Bitboard(0b1010);
+    /// a.toggle_mut(b);
+    /// assert_eq!(a, Bitboard(0b0110));
+    ///
+    /// // toggle twice is identity
+    /// a.toggle_mut(b);
+    /// assert_eq!(a, Bitboard(0b1100))
+    pub fn toggle_mut(&mut self, other: impl Into<Bitboard>) {
+        *self ^= other
+    }
+
     /// Returns a new [`Bitboard`] with the bits specified in `other` set.
     ///
     /// # Example
@@ -179,6 +197,25 @@ impl Bitboard {
     /// ```
     pub fn set(self, other: impl Into<Bitboard>) -> Self {
         self | other
+    }
+
+    /// Updates [`Bitboard`] in place with the bits specified in `other` set.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let mut a = Bitboard(0b1100);
+    /// let b = Bitboard(0b0011);
+    /// a.set_mut(b);
+    /// assert_eq!(a, Bitboard(0b1111));
+    ///
+    /// // setting already-set bits is a no-op
+    /// a.set_mut(a);
+    /// assert_eq!(a, a);
+    /// ```
+    pub fn set_mut(&mut self, other: impl Into<Bitboard>) {
+        *self |= other
     }
 
     /// Returns a new [`Bitboard`] with the bits specified in `other` unset.
@@ -197,6 +234,26 @@ impl Bitboard {
     pub fn unset(self, other: impl Into<Bitboard>) -> Bitboard {
         let mask = other.into();
         self & !mask
+    }
+
+    /// Updates [`Bitboard`] in place with the bits specified in `other` unset.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ruchess::bitboard::Bitboard;
+    /// let mut a = Bitboard(0b1111);
+    /// let b = Bitboard(0b0011);
+    /// a.unset_mut(b);
+    /// assert_eq!(a, Bitboard(0b1100));
+    ///
+    /// // unsetting already-unset bits is a no-op
+    /// a.unset_mut(Bitboard::EMPTY);
+    /// assert_eq!(a, Bitboard(0b1100));
+    /// ```
+    pub fn unset_mut(&mut self, other: impl Into<Bitboard>) {
+        let mask = other.into();
+        *self &= !mask
     }
 
     /// Returns `true` if any of the bits specified in `other` are set.
@@ -311,6 +368,18 @@ impl<T: Into<Bitboard>> std::ops::Shr<T> for Bitboard {
 impl<T: Into<Bitboard>> std::ops::BitOrAssign<T> for Bitboard {
     fn bitor_assign(&mut self, rhs: T) {
         self.0 |= rhs.into().0;
+    }
+}
+
+impl<T: Into<Bitboard>> std::ops::BitXorAssign<T> for Bitboard {
+    fn bitxor_assign(&mut self, rhs: T) {
+        self.0 ^= rhs.into().0
+    }
+}
+
+impl<T: Into<Bitboard>> std::ops::BitAndAssign<T> for Bitboard {
+    fn bitand_assign(&mut self, rhs: T) {
+        self.0 &= rhs.into().0
     }
 }
 
