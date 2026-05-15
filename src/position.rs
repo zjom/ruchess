@@ -474,6 +474,8 @@ impl Position {
         let ctx = LegalityContext::compute(self);
         let board = self.board;
         let color = self.color;
+
+        // TODO: move this filter into the move generation itself
         buf.retain(|m| ctx.is_legal(m, board, color));
         buf
     }
