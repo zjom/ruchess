@@ -970,6 +970,7 @@ mod proptests {
 
         #[test]
         fn pop_then_set_back_restores(b in random_board(), s in sq()) {
+            // TODO: this test is flakey
             prop_assume!(b.is_occupied(s));
             let (after_pop, popped) = b.pop(s);
             let p = popped.unwrap();
