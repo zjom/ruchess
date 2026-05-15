@@ -1,6 +1,6 @@
 [package]
 name = "ruchess"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2024"
 author = "zjom"
 license = "Unlicense"
