@@ -342,10 +342,10 @@ impl Position {
         let mover_role = self.board.role_at(mve.orig());
         let resets_clock = mover_role == Some(Role::Pawn) || is_capture(&self.board, mve);
         self.history.last_move = Some((*mve).into());
-        self.history.castles = self
-            .history
-            .castles
-            .update(mve, mover_role == Some(Role::King), self.color);
+        self.history.castles =
+            self.history
+                .castles
+                .update(mve, mover_role == Some(Role::King), self.color);
         self.history.unmoved_rooks = self.history.unmoved_rooks.update(mve);
         self.history.half_move_clock = if resets_clock {
             self.history.half_move_clock.reset()
@@ -839,6 +839,7 @@ impl Position {
 
     /// Appends the legal castling moves for the side to move. Adds nothing
     /// if the king is currently in check.
+    #[inline]
     fn push_castling_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.in_check {
             return;
@@ -854,6 +855,7 @@ impl Position {
     /// Returns `None` if rights are missing, the rook has moved, squares
     /// between king and rook are occupied, or the king would transit an
     /// attacked square.
+    #[inline]
     fn castle(&self, side: Side, ctx: &LegalityContext) -> Option<Move> {
         if !self.history.castles.can_side(self.color, side) {
             return None;
@@ -879,6 +881,7 @@ impl Position {
     /// Builds a non-special move (quiet push or simple capture) from `orig`
     /// to `dest`. Returns `None` if the destination holds one of our own
     /// pieces.
+    #[inline]
     fn normal(&self, orig: Square, dest: Square) -> Option<Move> {
         if self.board.color_at(dest) == Some(self.color) {
             return None;
@@ -887,6 +890,7 @@ impl Position {
     }
 
     /// Builds an en-passant [`Move`] from `orig` to `dest`.
+    #[inline]
     fn enpassant(&self, orig: Square, dest: Square) -> Move {
         Move::enpassant(orig, dest)
     }
@@ -895,6 +899,7 @@ impl Position {
     /// move set and appends it to `buf`: four promotion moves if `from` is on
     /// the seventh rank (relative to the mover), otherwise one ordinary pawn
     /// move.
+    #[inline]
     fn push_pawn_moves(&self, buf: &mut MoveList, from: Square, to: Square) {
         let is_promotion = from.rank() == self.color.seventh_rank();
         if is_promotion {

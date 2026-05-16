@@ -47,12 +47,14 @@ pub struct Move(u16);
 
 impl Move {
     /// Builds a normal move (quiet push or simple capture) from `orig` to `dest`.
+    #[inline]
     pub const fn normal(orig: Square, dest: Square) -> Self {
         Self::pack(orig, dest, 0, FLAG_NORMAL)
     }
 
     /// Builds a castling move from the king's origin to its destination.
     /// The castling side falls out of the destination file.
+    #[inline]
     pub const fn castle(king_from: Square, king_to: Square) -> Self {
         Self::pack(king_from, king_to, 0, FLAG_CASTLE)
     }
@@ -60,16 +62,19 @@ impl Move {
     /// Builds an en-passant capture from `orig` to `dest`. The captured
     /// pawn's square is derived from `dest` and the side to move at apply
     /// time.
+    #[inline]
     pub const fn enpassant(orig: Square, dest: Square) -> Self {
         Self::pack(orig, dest, 0, FLAG_ENPASSANT)
     }
 
     /// Builds a promotion move (capture or push) from `orig` to `dest`,
     /// promoting to `role`.
+    #[inline]
     pub const fn promotion(orig: Square, dest: Square, role: PromotableRole) -> Self {
         Self::pack(orig, dest, promo_bits(role), FLAG_PROMOTION)
     }
 
+    #[inline]
     const fn pack(orig: Square, dest: Square, promo: u16, flag: u16) -> Self {
         let bits = ((orig.0 as u16) << ORIG_SHIFT)
             | ((dest.0 as u16) << DEST_SHIFT)
