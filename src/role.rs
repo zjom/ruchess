@@ -448,7 +448,7 @@ impl<T> ByRole<T> {
     /// let counts = ByRole { pawn: 0, rook: 0, knight: 0, bishop: 0, queen: 1, king: 1 };
     ///
     /// // Finds the first role with a non-zero count (queen comes before king)
-    /// assert_eq!(counts.find(|c| *c > 0), Some(Role::Queen);
+    /// assert_eq!(counts.find(|c| *c > 0), Some(Role::Queen));
     ///
     /// // Returns None when no role matches
     /// let empty = ByRole { pawn: 0, rook: 0, knight: 0, bishop: 0, queen: 0, king: 0 };
