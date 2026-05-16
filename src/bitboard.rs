@@ -120,6 +120,7 @@ impl Bitboard {
     /// Constructs a new [`Bitboard`] from `value`.
     ///
     /// See [`Bitboard`]
+    #[inline]
     pub const fn new(value: u64) -> Self {
         Self(value)
     }
@@ -132,8 +133,9 @@ impl Bitboard {
     /// # use ruchess::bitboard::Bitboard;
     /// assert_eq!(Bitboard::new(0).is_empty(), true);
     /// assert_eq!(Bitboard::new(1).is_empty(), false);
-    pub fn is_empty(self) -> bool {
-        self == Self::EMPTY
+    #[inline]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
     }
 
     /// Returns `true` if any bits are "on".
@@ -144,8 +146,9 @@ impl Bitboard {
     /// # use ruchess::bitboard::Bitboard;
     /// assert_eq!(Bitboard::new(0).is_non_empty(), false);
     /// assert_eq!(Bitboard::new(1).is_non_empty(), true);
-    pub fn is_non_empty(self) -> bool {
-        self != Self::EMPTY
+    #[inline]
+    pub const fn is_non_empty(self) -> bool {
+        self.0 != 0
     }
 
     /// Returns a new [`Bitboard`] with the bits specified in `other` flipped.
@@ -160,6 +163,7 @@ impl Bitboard {
     ///
     /// // toggle twice is identity
     /// assert_eq!(a.toggle(b).toggle(b), a)
+    #[inline]
     pub fn toggle(self, other: impl Into<Bitboard>) -> Self {
         self ^ other
     }
@@ -178,6 +182,7 @@ impl Bitboard {
     /// // toggle twice is identity
     /// a.toggle_mut(b);
     /// assert_eq!(a, Bitboard(0b1100))
+    #[inline]
     pub fn toggle_mut(&mut self, other: impl Into<Bitboard>) {
         *self ^= other
     }
@@ -195,6 +200,7 @@ impl Bitboard {
     /// // setting already-set bits is a no-op
     /// assert_eq!(a.set(a), a);
     /// ```
+    #[inline]
     pub fn set(self, other: impl Into<Bitboard>) -> Self {
         self | other
     }
@@ -214,6 +220,7 @@ impl Bitboard {
     /// a.set_mut(a);
     /// assert_eq!(a, a);
     /// ```
+    #[inline]
     pub fn set_mut(&mut self, other: impl Into<Bitboard>) {
         *self |= other
     }
@@ -231,6 +238,7 @@ impl Bitboard {
     /// // unsetting already-unset bits is a no-op
     /// assert_eq!(a.unset(Bitboard::EMPTY), a);
     /// ```
+    #[inline]
     pub fn unset(self, other: impl Into<Bitboard>) -> Bitboard {
         let mask = other.into();
         self & !mask
@@ -251,6 +259,7 @@ impl Bitboard {
     /// a.unset_mut(Bitboard::EMPTY);
     /// assert_eq!(a, Bitboard(0b1100));
     /// ```
+    #[inline]
     pub fn unset_mut(&mut self, other: impl Into<Bitboard>) {
         let mask = other.into();
         *self &= !mask
@@ -268,14 +277,35 @@ impl Bitboard {
     /// assert!(!a.is_set(Bitboard(0b0011))); // no overlap
     /// assert!(!a.is_set(Bitboard::EMPTY));  // empty mask is never set
     /// ```
+    #[inline]
     pub fn is_set(self, other: impl Into<Bitboard>) -> bool {
-        (self & other) != Self::EMPTY
+        (self & other).0 != 0
+    }
+
+    /// Returns the last square.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ruchess::{Bitboard, square};
+    ///
+    /// assert_eq!(Bitboard::EMPTY.last(), None);
+    /// assert_eq!(Bitboard::FULL.last(), Some(square::H8));
+    /// ```
+    #[inline]
+    pub const fn last(self) -> Option<Square> {
+        if let Some(index) = self.0.checked_ilog2() {
+            Some(Square::new(index as u8))
+        } else {
+            None
+        }
     }
 }
 
 impl Iterator for Bitboard {
     type Item = Square;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.0 == 0 {
             return None;
@@ -291,23 +321,27 @@ impl Iterator for Bitboard {
 }
 
 impl From<u64> for Bitboard {
+    #[inline]
     fn from(value: u64) -> Self {
         Self::new(value)
     }
 }
 
 impl From<Rank> for Bitboard {
+    #[inline]
     fn from(value: Rank) -> Self {
         Bitboard(Rank::MASKS[value.as_u8() as usize])
     }
 }
 impl From<File> for Bitboard {
+    #[inline]
     fn from(value: File) -> Self {
         Bitboard(File::MASKS[value.as_u8() as usize])
     }
 }
 
 impl From<Square> for Bitboard {
+    #[inline]
     fn from(value: Square) -> Self {
         Bitboard(1_u64 << value.0)
     }
@@ -316,6 +350,7 @@ impl From<Square> for Bitboard {
 impl TryFrom<Bitboard> for Square {
     type Error = ();
 
+    #[inline]
     fn try_from(value: Bitboard) -> Result<Self, Self::Error> {
         if value.0.count_ones() == 1 {
             Ok(Square(value.0.trailing_zeros() as u8))
@@ -327,6 +362,7 @@ impl TryFrom<Bitboard> for Square {
 
 impl std::ops::Not for Bitboard {
     type Output = Self;
+    #[inline]
     fn not(self) -> Self::Output {
         Self(!self.0)
     }
@@ -334,18 +370,21 @@ impl std::ops::Not for Bitboard {
 
 impl<T: Into<Bitboard>> std::ops::BitAnd<T> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitand(self, rhs: T) -> Self::Output {
         Bitboard(self.0 & rhs.into().0)
     }
 }
 impl<T: Into<Bitboard>> std::ops::BitOr<T> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitor(self, rhs: T) -> Self::Output {
         Bitboard(self.0 | rhs.into().0)
     }
 }
 impl<T: Into<Bitboard>> std::ops::BitXor<T> for Bitboard {
     type Output = Bitboard;
+    #[inline]
     fn bitxor(self, rhs: T) -> Self::Output {
         Bitboard(self.0 ^ rhs.into().0)
     }
@@ -353,6 +392,7 @@ impl<T: Into<Bitboard>> std::ops::BitXor<T> for Bitboard {
 
 impl<T: Into<Bitboard>> std::ops::Shl<T> for Bitboard {
     type Output = Self;
+    #[inline]
     fn shl(self, rhs: T) -> Self::Output {
         Bitboard(self.0 << rhs.into().0)
     }
@@ -360,24 +400,28 @@ impl<T: Into<Bitboard>> std::ops::Shl<T> for Bitboard {
 
 impl<T: Into<Bitboard>> std::ops::Shr<T> for Bitboard {
     type Output = Self;
+    #[inline]
     fn shr(self, rhs: T) -> Self::Output {
         Bitboard(self.0 >> rhs.into().0)
     }
 }
 
 impl<T: Into<Bitboard>> std::ops::BitOrAssign<T> for Bitboard {
+    #[inline]
     fn bitor_assign(&mut self, rhs: T) {
         self.0 |= rhs.into().0;
     }
 }
 
 impl<T: Into<Bitboard>> std::ops::BitXorAssign<T> for Bitboard {
+    #[inline]
     fn bitxor_assign(&mut self, rhs: T) {
         self.0 ^= rhs.into().0
     }
 }
 
 impl<T: Into<Bitboard>> std::ops::BitAndAssign<T> for Bitboard {
+    #[inline]
     fn bitand_assign(&mut self, rhs: T) {
         self.0 &= rhs.into().0
     }
