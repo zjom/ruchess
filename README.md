@@ -80,11 +80,11 @@ code in [examples/perft.rs](examples/perft.rs)
 
 benchmarks were ran on m1 macbook pro
 
-we generate roughly 164 Mn/s
+we generate roughly 178 Mn/s
 
 for reference, [shakmaty](https://github.com/niklasf/shakmaty) generates roughly 223 Mn/s
 
-we are currently about 25% slower.
+we are currently about 20% slower.
 
 ## license
 
