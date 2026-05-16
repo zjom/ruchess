@@ -17,6 +17,10 @@ proptest = "1"
 [workspace]
 members = ["tui"]
 
+[profile.release]
+opt-level = 3
+debug = false
+
 [profile.bench]
 inherits = "release"
 debug = true
