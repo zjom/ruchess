@@ -2,7 +2,7 @@
 name = "ruchess"
 version = "0.0.8"
 edition = "2024"
-author = "zjom"
+authors = ["zjom"]
 license = "Unlicense"
 description = "rust chess"
 documentation = "https://docs.rs/ruchess"
