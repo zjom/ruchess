@@ -23,11 +23,11 @@ fn perft(pos: &mut Position, depth: u32) -> u64 {
 }
 
 fn fmt_move(m: &ruchess::mve::Move) -> String {
-    let promo = match m.promotion {
+    let promo = match m.promo_role() {
         Some(p) => format!("{}", p.as_ascii()),
         None => String::new(),
     };
-    format!("{}{}{}", m.orig, m.dest, promo)
+    format!("{}{}{}", m.orig(), m.dest(), promo)
 }
 
 fn main() {

@@ -364,7 +364,7 @@ fn render_info(app: &App, area: Rect, buf: &mut Buffer) {
     let moves = app.game.position().valid_moves();
     let mut valid_moves: Vec<String> = moves
         .iter()
-        .map(|m| format!("{}{}", m.orig, m.dest))
+        .map(|m| format!("{}{}", m.orig(), m.dest()))
         .collect();
     valid_moves.sort_unstable();
 
