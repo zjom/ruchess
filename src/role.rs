@@ -210,6 +210,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(container.pawn, 1);
     /// assert_eq!(container.queen, 9);
     /// ```
+    #[inline]
     pub fn new(pawn: T, knight: T, bishop: T, rook: T, queen: T, king: T) -> Self {
         Self {
             pawn,
@@ -230,6 +231,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(*container.get(Role::Pawn), 1);
     /// assert_eq!(*container.get(Role::King), 6);
     /// ```
+    #[inline]
     pub fn get(&self, r: Role) -> &T {
         match r {
             Role::Pawn => &self.pawn,
@@ -250,6 +252,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(container.queen, 9);
     /// ```
     #[must_use]
+    #[inline]
     pub fn set(self, r: Role, value: T) -> Self {
         match r {
             Role::Pawn => Self {
@@ -288,6 +291,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(container.rook, 5);
     /// ```
     #[must_use]
+    #[inline]
     pub fn update<F>(self, r: Role, f: F) -> Self
     where
         F: Fn(T) -> T,
@@ -329,6 +333,7 @@ impl<T> ByRole<T> {
     /// container.update_mut(Role::Rook, |v| *v += 4);
     /// assert_eq!(container.rook, 5);
     /// ```
+    #[inline]
     pub fn update_mut<F>(&mut self, r: Role, mut f: F)
     where
         F: FnMut(&mut T),
@@ -354,6 +359,7 @@ impl<T> ByRole<T> {
     /// values.foreach(|score| sum += score);
     /// assert_eq!(sum, 21);
     /// ```
+    #[inline]
     pub fn foreach<F>(&self, mut f: F)
     where
         F: FnMut(&T),
@@ -380,6 +386,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(doubled.queen, 18);
     /// ```
     #[must_use]
+    #[inline]
     pub fn map<F>(self, f: F) -> Self
     where
         F: Fn(&T) -> T,
@@ -415,6 +422,7 @@ impl<T> ByRole<T> {
     /// assert_eq!(values.queen, 9);
     /// ```
     #[must_use]
+    #[inline]
     pub fn from<F>(f: F) -> Self
     where
         F: Fn(Role) -> T,
@@ -446,6 +454,7 @@ impl<T> ByRole<T> {
     /// let empty = ByRole { pawn: 0, rook: 0, knight: 0, bishop: 0, queen: 0, king: 0 };
     /// assert_eq!(empty.find(|c| *c > 0), None);
     /// ```
+    #[inline]
     pub fn find<F>(&self, f: F) -> Option<(Role, &T)>
     where
         F: Fn(&T) -> bool,
