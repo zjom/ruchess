@@ -67,26 +67,21 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
-            KeyCode::Up | KeyCode::Char('k') => {
-                if self.cursor.1 < 7 {
-                    self.cursor.1 += 1;
-                }
+            KeyCode::Up | KeyCode::Char('k') if self.cursor.1 < 7 => {
+                self.cursor.1 += 1;
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                if self.cursor.1 > 0 {
-                    self.cursor.1 -= 1;
-                }
+            KeyCode::Down | KeyCode::Char('j') if self.cursor.1 > 0 => {
+                self.cursor.1 -= 1;
             }
-            KeyCode::Left | KeyCode::Char('h') => {
-                if self.cursor.0 > 0 {
-                    self.cursor.0 -= 1;
-                }
+            KeyCode::Down | KeyCode::Char('j') => {}
+            KeyCode::Left | KeyCode::Char('h') if self.cursor.0 > 0 => {
+                self.cursor.0 -= 1;
             }
-            KeyCode::Right | KeyCode::Char('l') => {
-                if self.cursor.0 < 7 {
-                    self.cursor.0 += 1;
-                }
+            KeyCode::Left | KeyCode::Char('h') => {}
+            KeyCode::Right | KeyCode::Char('l') if self.cursor.0 < 7 => {
+                self.cursor.0 += 1;
             }
+            KeyCode::Right | KeyCode::Char('l') => {}
             KeyCode::Enter | KeyCode::Char(' ') => self.handle_select(),
             KeyCode::Esc => {
                 self.selected = None;
