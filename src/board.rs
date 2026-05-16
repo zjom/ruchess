@@ -421,14 +421,14 @@ impl Board {
     /// ```
     #[inline]
     pub fn attackers(&self, sq: Square, attacker: Color) -> Bitboard {
+        let rooks_and_queens = self.by_role.rook ^ self.by_role.queen;
+        let bishops_and_queens = self.by_role.bishop ^ self.by_role.queen;
         self.bycolor(attacker)
-            & (ATTACKS.rook_attacks(sq, self.occupied)
-                & (self.byrole(Role::Rook) ^ self.byrole(Role::Queen))
-                | ATTACKS.bishop_attacks(sq, self.occupied)
-                    & (self.byrole(Role::Bishop) ^ self.byrole(Role::Queen))
-                | ATTACKS.knight_attacks(sq) & self.byrole(Role::Knight)
-                | ATTACKS.king_attacks(sq) & self.byrole(Role::King)
-                | ATTACKS.pawn_attacks(attacker.opponent(), sq) & self.byrole(Role::Pawn))
+            & ((ATTACKS.rook_attacks(sq, self.occupied) & rooks_and_queens)
+                | ATTACKS.bishop_attacks(sq, self.occupied) & bishops_and_queens
+                | ATTACKS.knight_attacks(sq) & self.by_role.knight
+                | ATTACKS.king_attacks(sq) & self.by_role.king
+                | ATTACKS.pawn_attacks(attacker.opponent(), sq) & self.by_role.pawn)
     }
 
     /// Returns a [`Bitboard`] of all pawns.
@@ -441,7 +441,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn pawns(&self) -> Bitboard {
-        self.byrole(Role::Pawn)
+        self.by_role.pawn
     }
 
     /// Returns a [`Bitboard`] of all rooks.
@@ -454,7 +454,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn rooks(&self) -> Bitboard {
-        self.byrole(Role::Rook)
+        self.by_role.rook
     }
 
     /// Returns a [`Bitboard`] of all knights.
@@ -467,7 +467,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn knights(&self) -> Bitboard {
-        self.byrole(Role::Knight)
+        self.by_role.knight
     }
 
     /// Returns a [`Bitboard`] of all bishops.
@@ -480,7 +480,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn bishops(&self) -> Bitboard {
-        self.byrole(Role::Bishop)
+        self.by_role.bishop
     }
 
     /// Returns a [`Bitboard`] of all queens.
@@ -493,7 +493,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn queens(&self) -> Bitboard {
-        self.byrole(Role::Queen)
+        self.by_role.queen
     }
 
     /// Returns the [`Square`] of the king of [`Color`] `c`.
@@ -512,12 +512,9 @@ impl Board {
     /// ```
     #[inline]
     pub fn king(&self, c: Color) -> Square {
-        self.bypiece(Piece {
-            role: Role::King,
-            color: c,
-        })
-        .try_into()
-        .expect("there must be exactly 1 king per color")
+        (self.by_role.king & self.bycolor(c))
+            .try_into()
+            .expect("there must be 1 king per color")
     }
 
     /// Returns a [`Bitboard`] of all white pieces.
@@ -530,7 +527,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn white(&self) -> Bitboard {
-        self.bycolor(Color::White)
+        self.by_color.white
     }
 
     /// Returns a [`Bitboard`] of all black pieces.
@@ -543,7 +540,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn black(&self) -> Bitboard {
-        self.bycolor(Color::Black)
+        self.by_color.black
     }
 
     /// Returns a [`Bitboard`] of all pieces of the given [`Piece`].
