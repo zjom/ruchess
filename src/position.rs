@@ -679,21 +679,15 @@ impl Position {
     /// p.king_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn king_moves(&self, buf: &mut Vec<Move>, _ctx: &LegalityContext) {
-        let orig = self.board.king(self.color);
-        // Remove our king for attack detection so sliders see through its
-        // current square — otherwise the king could slide along an
-        // attacker's ray.
-        let board_without_king = self.board.pop(orig).0;
-        for dest in ATTACKS.king_attacks(orig) {
-            if board_without_king.is_attacked(dest, self.color) {
-                continue;
-            }
+    pub fn king_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        let orig = ctx.king_sq;
+        let our_pieces = self.board.bycolor(self.color);
+        for dest in ATTACKS.king_attacks(orig) & !ctx.danger & !our_pieces {
             if let Some(m) = self.normal(orig, dest, Role::King) {
                 buf.push(m);
             }
         }
-        self.push_castling_moves(buf);
+        self.push_castling_moves(buf, ctx);
     }
 
     /// Appends all legal knight moves to `buf`. A pinned knight has no legal
@@ -839,12 +833,12 @@ impl Position {
 
     /// Appends the legal castling moves for the side to move. Adds nothing
     /// if the king is currently in check.
-    fn push_castling_moves(&self, buf: &mut Vec<Move>) {
-        if self.board.is_check(self.color) {
+    fn push_castling_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.in_check {
             return;
         }
         for side in [Side::King, Side::Queen] {
-            if let Some(m) = self.castle(side) {
+            if let Some(m) = self.castle(side, ctx) {
                 buf.push(m);
             }
         }
@@ -854,12 +848,12 @@ impl Position {
     /// Returns `None` if rights are missing, the rook has moved, squares
     /// between king and rook are occupied, or the king would transit an
     /// attacked square.
-    fn castle(&self, side: Side) -> Option<Move> {
+    fn castle(&self, side: Side, ctx: &LegalityContext) -> Option<Move> {
         if !self.history.castles.can_side(self.color, side) {
             return None;
         }
 
-        let king_from = self.board.king(self.color);
+        let king_from = ctx.king_sq;
         let rook_from = self.color.castle_square(side);
         if !self.history.unmoved_rooks.contains(rook_from) {
             return None;
@@ -869,10 +863,7 @@ impl Position {
         if (self.board.occupied() & between).is_non_empty() {
             return None;
         }
-        if king_path
-            .into_iter()
-            .any(|sq| self.board.is_attacked(sq, self.color))
-        {
+        if (king_path & ctx.danger).is_non_empty() {
             return None;
         }
 
@@ -949,11 +940,19 @@ pub const MAX_MOVES: usize = 256;
 ///   slider. A pinned piece may only move along the line through king and
 ///   pinner.
 /// - `king_sq`: square of our king, used to compute the per-pinned-piece ray.
+/// - `danger`: squares attacked by any opponent piece, computed once with our
+///   king removed from the slider blockers so the king cannot slide along an
+///   attacker's ray. King move and castling legality reduce to a single AND
+///   against this mask.
+/// - `in_check`: true iff our king square is under attack — short-circuits
+///   castling generation.
 pub struct LegalityContext {
     king_sq: Square,
     check_mask: Bitboard,
     is_double_check: bool,
+    in_check: bool,
     pinned: Bitboard,
+    danger: Bitboard,
 }
 
 impl LegalityContext {
@@ -978,14 +977,42 @@ impl LegalityContext {
             (Bitboard::EMPTY, true)
         };
 
-        // Pin detection. For each opponent slider that lies on a ray from our
-        // king (ignoring blockers), check whether exactly one of our pieces
-        // sits between — that piece is pinned.
         let occupied = board.occupied();
         let our_pieces = board.bycolor(us);
         let opp_rq = board.bycolor(them) & (board.rooks() | board.queens());
         let opp_bq = board.bycolor(them) & (board.bishops() | board.queens());
 
+        // King-danger map: every square attacked by an opponent piece, with
+        // our king removed from the slider occupancy so sliders see through
+        // its current square. King moves and castling transit squares are
+        // legal iff they are not in `danger`.
+        let occ_no_king = occupied ^ Bitboard::from(king_sq);
+        let mut danger = Bitboard::EMPTY;
+        let opp_pawns = board.bypiece(Piece {
+            role: Role::Pawn,
+            color: them,
+        });
+        for sq in opp_pawns {
+            danger |= ATTACKS.pawn_attacks(them, sq);
+        }
+        let opp_knights = board.bypiece(Piece {
+            role: Role::Knight,
+            color: them,
+        });
+        for sq in opp_knights {
+            danger |= ATTACKS.knight_attacks(sq);
+        }
+        for sq in opp_bq {
+            danger |= ATTACKS.bishop_attacks(sq, occ_no_king);
+        }
+        for sq in opp_rq {
+            danger |= ATTACKS.rook_attacks(sq, occ_no_king);
+        }
+        danger |= ATTACKS.king_attacks(board.king(them));
+
+        // Pin detection. For each opponent slider that lies on a ray from our
+        // king (ignoring blockers), check whether exactly one of our pieces
+        // sits between — that piece is pinned.
         let mut pinned = Bitboard::EMPTY;
 
         // Rook-style pinners (rank/file rays).
@@ -1012,7 +1039,9 @@ impl LegalityContext {
             king_sq,
             check_mask,
             is_double_check,
+            in_check: n_checkers > 0,
             pinned,
+            danger,
         }
     }
 
