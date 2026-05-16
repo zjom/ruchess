@@ -10,6 +10,8 @@
 //! [`Move::promotion`]) rather than by hand — they fill in the
 //! mutually-exclusive flag fields correctly.
 
+use arrayvec::ArrayVec;
+
 use crate::{
     color::Color,
     piece::Piece,
@@ -154,3 +156,5 @@ impl Move {
         }
     }
 }
+
+pub type MoveList = ArrayVec<Move, 270>;

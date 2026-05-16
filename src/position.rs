@@ -53,7 +53,7 @@ use crate::{
     castles::Castles,
     color::Color,
     history::History,
-    mve::Move,
+    mve::{Move, MoveList},
     piece::Piece,
     ply::Ply,
     role::{PromotableRole, Role},
@@ -464,8 +464,8 @@ impl Position {
     /// let moves = Position::new().valid_moves();
     /// assert_eq!(moves.len(), 20);
     /// ```
-    pub fn valid_moves(&self) -> Vec<Move> {
-        let mut buf = Vec::with_capacity(MAX_MOVES);
+    pub fn valid_moves(&self) -> MoveList {
+        let mut buf = MoveList::new();
         let ctx = LegalityContext::compute(self);
         self.king_moves(&mut buf, &ctx);
         // Under double check only the king can move.
@@ -508,7 +508,7 @@ impl Position {
     /// let moves = p.valid_moves_at(square::A1);
     /// assert_eq!(moves.len(), 0);
     /// ```
-    pub fn valid_moves_at(&self, orig: Square) -> Vec<Move> {
+    pub fn valid_moves_at(&self, orig: Square) -> MoveList {
         let mut buf = self.valid_moves();
         buf.retain(|m| m.orig == orig);
         buf
@@ -526,15 +526,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // 8 pawns × (single + double) = 16 from the starting position.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.pawn_moves(&mut moves, &ctx);
     /// assert_eq!(moves.len(), 16);
     /// ```
-    pub fn pawn_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn pawn_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -620,15 +620,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // No en-passant on move 1 (no prior move to react to).
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.enpassant_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn enpassant_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn enpassant_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -671,15 +671,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // From the starting position the king is hemmed in by its own pieces.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.king_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn king_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn king_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         let orig = ctx.king_sq;
         let our_pieces = self.board.bycolor(self.color);
         for dest in ATTACKS.king_attacks(orig) & !ctx.danger & !our_pieces {
@@ -698,15 +698,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{MoveList,Move};
     /// // 2 knights × 2 destinations each = 4 from the starting position.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.knight_moves(&mut moves, &ctx);
     /// assert_eq!(moves.len(), 4);
     /// ```
-    pub fn knight_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn knight_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -730,15 +730,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // Bishops are blocked by own pawns at the start.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.bishop_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn bishop_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn bishop_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -764,15 +764,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // Rooks are locked in by their own pieces at the start.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.rook_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn rook_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn rook_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -799,15 +799,15 @@ impl Position {
     /// ```
     /// # use ruchess::position::Position;
     /// # use ruchess::position::LegalityContext;
-    /// # use ruchess::mve::Move;
+    /// # use ruchess::mve::{Move,MoveList};
     /// // The queen has no legal moves from the starting position.
     /// let p = Position::new();
     /// let ctx = LegalityContext::compute(&p);
-    /// let mut moves: Vec<Move> = Vec::new();
+    /// let mut moves = MoveList::new();
     /// p.queen_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn queen_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    pub fn queen_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.is_double_check {
             return;
         }
@@ -833,7 +833,7 @@ impl Position {
 
     /// Appends the legal castling moves for the side to move. Adds nothing
     /// if the king is currently in check.
-    fn push_castling_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+    fn push_castling_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         if ctx.in_check {
             return;
         }
@@ -903,7 +903,7 @@ impl Position {
     /// move set and appends it to `buf`: four promotion moves if `from` is on
     /// the seventh rank (relative to the mover), otherwise one ordinary pawn
     /// move.
-    fn push_pawn_moves(&self, buf: &mut Vec<Move>, from: Square, to: Square, is_capture: bool) {
+    fn push_pawn_moves(&self, buf: &mut MoveList, from: Square, to: Square, is_capture: bool) {
         let is_promotion = from.rank() == self.color.seventh_rank();
         if is_promotion {
             let captured = if is_capture {
@@ -1196,12 +1196,12 @@ mod tests {
     }
 
     /// Test helper: collect every legal move into a fresh `Vec`.
-    fn collect_valid(p: &Position) -> Vec<Move> {
+    fn collect_valid(p: &Position) -> MoveList {
         p.valid_moves()
     }
 
     /// Test helper: collect every legal move with `orig == s` into a fresh `Vec`.
-    fn collect_at(p: &Position, s: Square) -> Vec<Move> {
+    fn collect_at(p: &Position, s: Square) -> MoveList {
         p.valid_moves_at(s)
     }
 
@@ -1217,7 +1217,7 @@ mod tests {
         // 8 pawns × (1 single push + 1 double push) = 16
         let p = Position::new();
         let ctx = LegalityContext::compute(&p);
-        let mut buf = Vec::new();
+        let mut buf = MoveList::new();
         p.pawn_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 16);
     }
@@ -1227,7 +1227,7 @@ mod tests {
         // 2 knights × 2 destinations each = 4
         let p = Position::new();
         let ctx = LegalityContext::compute(&p);
-        let mut buf = Vec::new();
+        let mut buf = MoveList::new();
         p.knight_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 4);
     }
@@ -1249,7 +1249,7 @@ mod tests {
         let p = Position::new();
         assert_eq!(p.enpassant_square(), None);
         let ctx = LegalityContext::compute(&p);
-        let mut buf = Vec::new();
+        let mut buf = MoveList::new();
         p.enpassant_moves(&mut buf, &ctx);
         assert!(buf.is_empty());
     }
@@ -1376,7 +1376,7 @@ mod tests {
             Some(square::D6),
             "en passant target should be D6 (the square the black pawn passed)"
         );
-        let mut eps: Vec<Move> = Vec::new();
+        let mut eps = MoveList::new();
         let ctx = LegalityContext::compute(&p);
         p.enpassant_moves(&mut eps, &ctx);
         assert_eq!(eps.len(), 1, "exactly one en-passant move available");
@@ -1406,7 +1406,7 @@ mod tests {
         };
         let p = Position::new().with_board(b).with_history(history);
         assert_eq!(p.enpassant_square(), None);
-        let mut eps: Vec<Move> = Vec::new();
+        let mut eps = MoveList::new();
         let ctx = LegalityContext::compute(&p);
         p.enpassant_moves(&mut eps, &ctx);
         assert!(eps.is_empty());
@@ -1688,7 +1688,7 @@ mod proptests {
     }
 
     /// Collect every legal move from `p` into a fresh `Vec`.
-    fn collect_valid(p: &Position) -> Vec<Move> {
+    fn collect_valid(p: &Position) -> MoveList {
         p.valid_moves()
     }
 
@@ -1752,19 +1752,19 @@ mod proptests {
         fn partition_matches_per_piece_generators(p in random_position()) {
             let total = collect_valid(&p).len();
             let ctx = LegalityContext::compute(&p);
-            let mut pawns = Vec::new();
+            let mut pawns = MoveList::new();
             p.pawn_moves(&mut pawns, &ctx);
-            let mut ep = Vec::new();
+            let mut ep = MoveList::new();
             p.enpassant_moves(&mut ep, &ctx);
-            let mut king = Vec::new();
+            let mut king = MoveList::new();
             p.king_moves(&mut king, &ctx);
-            let mut knight = Vec::new();
+            let mut knight = MoveList::new();
             p.knight_moves(&mut knight, &ctx);
-            let mut bishop = Vec::new();
+            let mut bishop = MoveList::new();
             p.bishop_moves(&mut bishop, &ctx);
-            let mut rook = Vec::new();
+            let mut rook = MoveList::new();
             p.rook_moves(&mut rook, &ctx);
-            let mut queen = Vec::new();
+            let mut queen = MoveList::new();
             p.queen_moves(&mut queen, &ctx);
             let sum = pawns.len() + ep.len() + king.len()
                 + knight.len() + bishop.len() + rook.len() + queen.len();

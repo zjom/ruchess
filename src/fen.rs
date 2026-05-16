@@ -275,7 +275,7 @@ impl From<ParseColorError> for ParseFenError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::square;
+    use crate::{mve::MoveList, square};
 
     const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -339,7 +339,7 @@ mod tests {
         let p = parse("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1").unwrap();
         assert_eq!(p.enpassant_square(), Some(square::D6));
         // And the legal en-passant capture is actually emitted.
-        let mut buf: Vec<crate::mve::Move> = Vec::new();
+        let mut buf = MoveList::new();
         let ctx = crate::position::LegalityContext::compute(&p);
         p.enpassant_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 1);
@@ -350,7 +350,7 @@ mod tests {
         // White just played e2→e4; target is e3.
         let p = parse("4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 1").unwrap();
         assert_eq!(p.enpassant_square(), Some(square::E3));
-        let mut buf: Vec<crate::mve::Move> = Vec::new();
+        let mut buf = MoveList::new();
         let ctx = crate::position::LegalityContext::compute(&p);
         p.enpassant_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 1);
