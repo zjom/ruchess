@@ -347,7 +347,7 @@ impl<T> ByColor<T> {
         }
     }
 
-    /// Returns the first `(Color, &T)` pair where `f` returns `true`,
+    /// Returns the first [`Color`] where `f` returns `true`,
     /// or `None` if neither side matches. White is checked before black.
     ///
     /// # Examples
@@ -356,25 +356,25 @@ impl<T> ByColor<T> {
     /// # use ruchess::color::{ByColor, Color};
     /// // Finds white when white matches
     /// let scores = ByColor { white: 10, black: 3 };
-    /// assert_eq!(scores.find(|s| *s > 5), Some((Color::White, &10)));
+    /// assert_eq!(scores.find(|s| *s > 5), Some(Color::White));
     ///
     /// // Falls through to black when only black matches
     /// let scores = ByColor { white: 1, black: 8 };
-    /// assert_eq!(scores.find(|s| *s > 5), Some((Color::Black, &8)));
+    /// assert_eq!(scores.find(|s| *s > 5), Some(Color::Black));
     ///
     /// // Returns None when neither side matches
     /// let scores = ByColor { white: 1, black: 2 };
     /// assert_eq!(scores.find(|s| *s > 5), None);
     /// ```
     #[inline]
-    pub fn find<F>(&self, f: F) -> Option<(Color, &T)>
+    pub fn find<F>(&self, f: F) -> Option<Color>
     where
         F: Fn(&T) -> bool,
     {
         if f(&self.white) {
-            Some((Color::White, &self.white))
+            Some(Color::White)
         } else if f(&self.black) {
-            Some((Color::Black, &self.black))
+            Some(Color::Black)
         } else {
             None
         }

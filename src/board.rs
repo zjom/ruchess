@@ -343,7 +343,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn role_at(&self, sq: Square) -> Option<Role> {
-        self.by_role.find(|bb| bb.is_set(sq)).map(|(p, _)| p)
+        self.by_role.find(|bb| bb.is_set(sq))
     }
 
     /// Returns the [`Color`] at [`Square`] `sq` if any.
@@ -359,7 +359,7 @@ impl Board {
     /// ```
     #[inline]
     pub fn color_at(&self, sq: Square) -> Option<Color> {
-        self.by_color.find(|bb| bb.is_set(sq)).map(|(c, _)| c)
+        self.by_color.find(|bb| bb.is_set(sq))
     }
 
     /// Checks whether the [`Piece`] `p` exists on the board.
@@ -595,8 +595,8 @@ impl Board {
         for i in 0..64 {
             let sq = Square(i as u8);
             if self.occupied.is_set(sq) {
-                let (color, _color_bb) = self.by_color.find(|b| b.is_set(sq)).unwrap();
-                let (role, _role_bb) = self.by_role.find(|b| b.is_set(sq)).unwrap();
+                let color = self.by_color.find(|b| b.is_set(sq)).unwrap();
+                let role = self.by_role.find(|b| b.is_set(sq)).unwrap();
                 grid[i / 8][i % 8] = Some(Piece { color, role })
             }
         }

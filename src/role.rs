@@ -437,7 +437,7 @@ impl<T> ByRole<T> {
         }
     }
 
-    /// Returns the first `(Role, &T)` pair where `f` returns `true`,
+    /// Returns the first [`Role`] where `f` returns `true`,
     /// or `None` if no role matches. Roles are checked in the order:
     /// pawn → rook → knight → bishop → queen → king.
     ///
@@ -448,29 +448,29 @@ impl<T> ByRole<T> {
     /// let counts = ByRole { pawn: 0, rook: 0, knight: 0, bishop: 0, queen: 1, king: 1 };
     ///
     /// // Finds the first role with a non-zero count (queen comes before king)
-    /// assert_eq!(counts.find(|c| *c > 0), Some((Role::Queen, &1)));
+    /// assert_eq!(counts.find(|c| *c > 0), Some(Role::Queen);
     ///
     /// // Returns None when no role matches
     /// let empty = ByRole { pawn: 0, rook: 0, knight: 0, bishop: 0, queen: 0, king: 0 };
     /// assert_eq!(empty.find(|c| *c > 0), None);
     /// ```
     #[inline]
-    pub fn find<F>(&self, f: F) -> Option<(Role, &T)>
+    pub fn find<F>(&self, f: F) -> Option<Role>
     where
         F: Fn(&T) -> bool,
     {
         if f(&self.pawn) {
-            Some((Role::Pawn, &self.pawn))
+            Some(Role::Pawn)
         } else if f(&self.rook) {
-            Some((Role::Rook, &self.rook))
+            Some(Role::Rook)
         } else if f(&self.knight) {
-            Some((Role::Knight, &self.knight))
+            Some(Role::Knight)
         } else if f(&self.bishop) {
-            Some((Role::Bishop, &self.bishop))
+            Some(Role::Bishop)
         } else if f(&self.queen) {
-            Some((Role::Queen, &self.queen))
+            Some(Role::Queen)
         } else if f(&self.king) {
-            Some((Role::King, &self.king))
+            Some(Role::King)
         } else {
             None
         }
