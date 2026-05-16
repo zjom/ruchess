@@ -287,7 +287,7 @@ impl Bitboard {
     /// # Examples
     ///
     /// ```
-    /// use ruchess::{Bitboard, square};
+    /// use ruchess::{bitboard::Bitboard, square};
     ///
     /// assert_eq!(Bitboard::EMPTY.last(), None);
     /// assert_eq!(Bitboard::FULL.last(), Some(square::H8));
