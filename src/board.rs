@@ -740,6 +740,19 @@ mod proptests {
         })
     }
 
+    /// (board, sq ∈ occupied). Avoids rejection by drawing from the board's
+    /// actual occupied squares instead of `prop_assume!`-filtering.
+    fn board_and_occupied() -> impl Strategy<Value = (Board, Square)> {
+        random_board()
+            .prop_filter("need ≥1 occupied square", |b| {
+                b.occupied().is_non_empty()
+            })
+            .prop_flat_map(|b| {
+                let occ: Vec<Square> = b.occupied().into_iter().collect();
+                (Just(b), proptest::sample::select(occ))
+            })
+    }
+
     /// (board, orig ∈ occupied, dest ∈ empty). Avoids rejection by drawing
     /// from the board's actual squares instead of `prop_assume!`-filtering.
     fn board_and_move() -> impl Strategy<Value = (Board, Square, Square)> {
@@ -969,9 +982,7 @@ mod proptests {
         }
 
         #[test]
-        fn pop_then_set_back_restores(b in random_board(), s in sq()) {
-            // TODO: this test is flakey
-            prop_assume!(b.is_occupied(s));
+        fn pop_then_set_back_restores((b, s) in board_and_occupied()) {
             let (after_pop, popped) = b.pop(s);
             let p = popped.unwrap();
             let restored = after_pop.set(s, p);
