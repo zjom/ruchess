@@ -46,6 +46,7 @@ impl Color {
     /// assert_eq!(Color::White.opponent(), Color::Black);
     /// assert_eq!(Color::Black.opponent(), Color::White);
     /// ```
+    #[inline]
     pub fn opponent(self) -> Color {
         match self {
             Self::White => Self::Black,
@@ -63,6 +64,7 @@ impl Color {
     /// assert_eq!(Color::White.castle_square(Side::King), square::H1);
     /// assert_eq!(Color::Black.castle_square(Side::Queen), square::A8);
     /// ```
+    #[inline]
     pub fn castle_square(self, side: Side) -> Square {
         match (self, side) {
             (Color::White, Side::King) => square::H1,
@@ -81,6 +83,7 @@ impl Color {
     /// assert_eq!(Color::White.back_rank(), Rank::First);
     /// assert_eq!(Color::Black.back_rank(), Rank::Eighth);
     /// ```
+    #[inline]
     pub fn back_rank(self) -> Rank {
         match self {
             Self::White => Rank::First,
@@ -97,6 +100,7 @@ impl Color {
     /// assert_eq!(Color::White.second_rank(), Rank::Second);
     /// assert_eq!(Color::Black.second_rank(), Rank::Seventh);
     /// ```
+    #[inline]
     pub fn second_rank(self) -> Rank {
         match self {
             Self::White => Rank::Second,
@@ -115,6 +119,7 @@ impl Color {
     /// assert_eq!(Color::White.fourth_rank(), Rank::Fourth);
     /// assert_eq!(Color::Black.fourth_rank(), Rank::Fifth);
     /// ```
+    #[inline]
     pub fn fourth_rank(self) -> Rank {
         match self {
             Self::White => Rank::Fourth,
@@ -131,6 +136,7 @@ impl Color {
     /// assert_eq!(Color::White.seventh_rank(), Rank::Seventh);
     /// assert_eq!(Color::Black.seventh_rank(), Rank::Second);
     /// ```
+    #[inline]
     pub fn seventh_rank(self) -> Rank {
         match self {
             Self::White => Rank::Seventh,
@@ -199,6 +205,7 @@ impl<T> ByColor<T> {
     /// let container = ByColor::new("W", "B");
     /// assert_eq!(*container.get(Color::White), "W");
     /// ```
+    #[inline]
     pub fn get(&self, c: Color) -> &T {
         match c {
             Color::White => &self.white,
@@ -215,6 +222,7 @@ impl<T> ByColor<T> {
     /// assert_eq!(container.white, 5);
     /// ```
     #[must_use]
+    #[inline]
     pub fn set(self, c: Color, value: T) -> Self {
         match c {
             Color::White => Self {
@@ -237,6 +245,7 @@ impl<T> ByColor<T> {
     /// assert_eq!(container.black, 25);
     /// ```
     #[must_use]
+    #[inline]
     pub fn update<F>(self, c: Color, f: F) -> Self
     where
         F: Fn(T) -> T,
@@ -262,6 +271,7 @@ impl<T> ByColor<T> {
     /// container.update_mut(Color::Black, |v| *v += 5);
     /// assert_eq!(container.black, 25);
     /// ```
+    #[inline]
     pub fn update_mut<F>(&mut self, c: Color, mut f: F)
     where
         F: FnMut(&mut T),
@@ -283,6 +293,7 @@ impl<T> ByColor<T> {
     /// scores.foreach(|score| sum += score);
     /// assert_eq!(sum, 10);
     /// ```
+    #[inline]
     pub fn foreach<F>(&self, mut f: F)
     where
         F: FnMut(&T),
@@ -302,6 +313,7 @@ impl<T> ByColor<T> {
     /// assert_eq!(doubled.white, 6);
     /// assert_eq!(doubled.black, 14);
     /// ```
+    #[inline]
     pub fn map<F>(&self, f: F) -> Self
     where
         F: Fn(&T) -> T,
@@ -324,6 +336,7 @@ impl<T> ByColor<T> {
     /// assert_eq!(labels.white, "White player");
     /// assert_eq!(labels.black, "Black player");
     /// ```
+    #[inline]
     pub fn from<F>(f: F) -> Self
     where
         F: Fn(Color) -> T,
@@ -353,6 +366,7 @@ impl<T> ByColor<T> {
     /// let scores = ByColor { white: 1, black: 2 };
     /// assert_eq!(scores.find(|s| *s > 5), None);
     /// ```
+    #[inline]
     pub fn find<F>(&self, f: F) -> Option<(Color, &T)>
     where
         F: Fn(&T) -> bool,
