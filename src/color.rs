@@ -29,7 +29,7 @@ use crate::side::Side;
 use crate::square::{self, Square};
 
 /// Represents one of the two players in a chess game.
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub enum Color {
     /// The player who moves first.
     White,
