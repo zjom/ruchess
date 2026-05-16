@@ -512,9 +512,12 @@ impl Board {
     /// ```
     #[inline]
     pub fn king(&self, c: Color) -> Square {
-        (self.by_role.king & self.bycolor(c))
-            .try_into()
-            .expect("there must be 1 king per color")
+        self.bypiece(Piece {
+            role: Role::King,
+            color: c,
+        })
+        .try_into()
+        .expect("there must be exactly 1 king per color")
     }
 
     /// Returns a [`Bitboard`] of all white pieces.
