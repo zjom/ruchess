@@ -157,4 +157,20 @@ impl Move {
     }
 }
 
+/// A container for moves that can be stored inline on the stack.
+///
+/// The capacity is limited, but there is enough space to hold the legal
+/// moves of any chess position, including any of the supported chess variants,
+/// if enabled.
+///
+/// # Example
+///
+/// ```
+/// use ruchess::{position::Position, role::Role};
+///
+/// let pos = Position::new();
+/// let mut moves = pos.valid_moves();
+/// moves.retain(|m| m.piece.role == Role::Pawn);
+/// assert_eq!(moves.len(), 16);
+/// ```
 pub type MoveList = ArrayVec<Move, 270>;
