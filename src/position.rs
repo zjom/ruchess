@@ -43,6 +43,8 @@
 //! Each move type also has a dedicated generator
 //! ([`Position::pawn_moves`], [`Position::knight_moves`], …) that appends
 //! into a caller owned buffer; together they partition [`Position::valid_moves`].
+//! They emit only legal moves and take a [`LegalityContext`] — build one with
+//! [`LegalityContext::compute`] and reuse it across the per-piece calls.
 
 use crate::{
     attacks::ATTACKS,
@@ -451,9 +453,10 @@ impl Position {
 
     /// Returns all valid moves in this position.
     ///
-    /// Calls each per-piece-type generator ([`Self::pawn_moves`],
-    /// [`Self::enpassant_moves`], [`Self::king_moves`], …) in a fixed order,
-    /// then retains only those that satisfy check/pin legality.
+    /// Computes a [`LegalityContext`] once and calls each per-piece-type
+    /// generator ([`Self::pawn_moves`], [`Self::enpassant_moves`],
+    /// [`Self::king_moves`], …) in a fixed order. Each generator emits only
+    /// legal moves — no post-filter is needed.
     ///
     /// # Example
     /// ```
@@ -463,20 +466,18 @@ impl Position {
     /// ```
     pub fn valid_moves(&self) -> Vec<Move> {
         let mut buf = Vec::with_capacity(MAX_MOVES);
-        self.pawn_moves(&mut buf);
-        self.enpassant_moves(&mut buf);
-        self.king_moves(&mut buf);
-        self.knight_moves(&mut buf);
-        self.bishop_moves(&mut buf);
-        self.rook_moves(&mut buf);
-        self.queen_moves(&mut buf);
-
         let ctx = LegalityContext::compute(self);
-        let board = self.board;
-        let color = self.color;
-
-        // TODO: move this filter into the move generation itself
-        buf.retain(|m| ctx.is_legal(m, board, color));
+        self.king_moves(&mut buf, &ctx);
+        // Under double check only the king can move.
+        if ctx.is_double_check {
+            return buf;
+        }
+        self.pawn_moves(&mut buf, &ctx);
+        self.enpassant_moves(&mut buf, &ctx);
+        self.knight_moves(&mut buf, &ctx);
+        self.bishop_moves(&mut buf, &ctx);
+        self.rook_moves(&mut buf, &ctx);
+        self.queen_moves(&mut buf, &ctx);
         buf
     }
 
@@ -513,44 +514,54 @@ impl Position {
         buf
     }
 
-    /// Appends all pseudo-legal pawn moves to `buf`: pushes, double pushes,
-    /// captures, and promotions. En-passant captures are emitted separately
-    /// by [`Self::enpassant_moves`].
+    /// Appends all legal pawn moves to `buf`: pushes, double pushes, captures,
+    /// and promotions. En-passant captures are emitted separately by
+    /// [`Self::enpassant_moves`].
     ///
-    /// "Pseudo-legal" — moves that leave the king in check are *not* filtered
-    /// here. [`Self::valid_moves`] applies that filter once over the full
-    /// pseudo-legal set.
+    /// `ctx` constrains destinations: under check, only check-resolving
+    /// squares are emitted; pinned pawns may only move along the king-pinner
+    /// line. Adds nothing under double check.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // 8 pawns × (single + double) = 16 from the starting position.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().pawn_moves(&mut moves);
+    /// p.pawn_moves(&mut moves, &ctx);
     /// assert_eq!(moves.len(), 16);
     /// ```
-    pub fn pawn_moves(&self, buf: &mut Vec<Move>) {
+    pub fn pawn_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
             color: self.color,
         });
         let them = self.board.bycolor(self.color.opponent());
 
-        // Captures.
+        // Captures. A pinned pawn can only capture along its king-pinner ray.
         for from in pawns {
-            for to in ATTACKS.pawn_attacks(self.color, from) & them {
+            let mask = ctx.target_mask(from);
+            for to in ATTACKS.pawn_attacks(self.color, from) & them & mask {
                 self.push_pawn_moves(buf, from, to, true);
             }
         }
 
-        // Single pushes.
-        let singles = !self.board.occupied()
+        let occupied = self.board.occupied();
+        let unpinned = pawns & !ctx.pinned;
+
+        // Single pushes for unpinned pawns.
+        let singles = !occupied
             & (match self.color {
-                Color::White => (self.board.white() & pawns) << 8,
-                Color::Black => (self.board.black() & pawns) >> 8,
+                Color::White => unpinned << 8,
+                Color::Black => unpinned >> 8,
             });
-        for to in singles {
+        for to in singles & ctx.check_mask {
             let from = Square(match self.color {
                 Color::White => to.0 - 8,
                 Color::Black => to.0 + 8,
@@ -558,37 +569,69 @@ impl Position {
             self.push_pawn_moves(buf, from, to, false);
         }
 
-        // Double pushes.
-        let doubles = !self.board.occupied()
+        // Double pushes for unpinned pawns.
+        let doubles = !occupied
             & (match self.color {
                 Color::White => singles << 8,
                 Color::Black => singles >> 8,
             })
             & self.color.fourth_rank();
-        for to in doubles {
+        for to in doubles & ctx.check_mask {
             let from = Square(match self.color {
                 Color::White => to.0 - 16,
                 Color::Black => to.0 + 16,
             });
             self.push_pawn_moves(buf, from, to, false);
         }
+
+        // Pinned pawn pushes — destination must lie on the pin ray.
+        for from in pawns & ctx.pinned {
+            let mask = ctx.target_mask(from);
+            let single_to = Square(match self.color {
+                Color::White => from.0 + 8,
+                Color::Black => from.0 - 8,
+            });
+            if !occupied.is_set(single_to) {
+                if mask.is_set(single_to) {
+                    self.push_pawn_moves(buf, from, single_to, false);
+                }
+                if from.rank() == self.color.second_rank() {
+                    let double_to = Square(match self.color {
+                        Color::White => from.0 + 16,
+                        Color::Black => from.0 - 16,
+                    });
+                    if !occupied.is_set(double_to) && mask.is_set(double_to) {
+                        self.push_pawn_moves(buf, from, double_to, false);
+                    }
+                }
+            }
+        }
     }
 
-    /// Appends en-passant captures available to the side to move.
+    /// Appends legal en-passant captures available to the side to move.
     ///
     /// Adds nothing unless the previous move was a two-square pawn push that
-    /// ended next to a friendly pawn.
+    /// ended next to a friendly pawn. Each candidate is verified by applying
+    /// the capture and rejecting it if it leaves our king in check (the
+    /// captured pawn vacates the same rank as the capturer, which can expose
+    /// the king to a horizontal attacker).
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // No en-passant on move 1 (no prior move to react to).
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().enpassant_moves(&mut moves);
+    /// p.enpassant_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn enpassant_moves(&self, buf: &mut Vec<Move>) {
+    pub fn enpassant_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let Some(last_move) = self.history.last_move else {
             return;
         };
@@ -601,7 +644,14 @@ impl Position {
         });
         for from in ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns {
             if let Some(m) = self.enpassant(from, target) {
-                buf.push(m);
+                // Discovered-check fallback: en passant removes a pawn from
+                // a different square than the capturer's destination, which
+                // can expose the king. Apply and re-test cheaply.
+                let mut working = self.board;
+                apply_move(&mut working, &m);
+                if !working.is_check(self.color) {
+                    buf.push(m);
+                }
             }
         }
     }
@@ -613,16 +663,23 @@ impl Position {
     /// king cannot slide along an attacker's ray onto a "safe-looking" square
     /// that the king itself was blocking.
     ///
+    /// `ctx` is unused here — king legality is intrinsic to the move (attacked
+    /// destination test) rather than driven by the check/pin context — but
+    /// the parameter keeps the per-piece signatures uniform.
+    ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // From the starting position the king is hemmed in by its own pieces.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().king_moves(&mut moves);
+    /// p.king_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn king_moves(&self, buf: &mut Vec<Move>) {
+    pub fn king_moves(&self, buf: &mut Vec<Move>, _ctx: &LegalityContext) {
         let orig = self.board.king(self.color);
         // Remove our king for attack detection so sliders see through its
         // current square — otherwise the king could slide along an
@@ -639,24 +696,32 @@ impl Position {
         self.push_castling_moves(buf);
     }
 
-    /// Appends all pseudo-legal knight moves to `buf`.
+    /// Appends all legal knight moves to `buf`. A pinned knight has no legal
+    /// moves (every knight jump leaves the king-pinner line). Adds nothing
+    /// under double check.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // 2 knights × 2 destinations each = 4 from the starting position.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().knight_moves(&mut moves);
+    /// p.knight_moves(&mut moves, &ctx);
     /// assert_eq!(moves.len(), 4);
     /// ```
-    pub fn knight_moves(&self, buf: &mut Vec<Move>) {
+    pub fn knight_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let knights = self.board.bypiece(Piece {
             role: Role::Knight,
             color: self.color,
-        });
+        }) & !ctx.pinned;
         for from in knights {
-            for to in ATTACKS.knight_attacks(from) {
+            for to in ATTACKS.knight_attacks(from) & ctx.check_mask {
                 if let Some(m) = self.normal(from, to, Role::Knight) {
                     buf.push(m);
                 }
@@ -664,24 +729,33 @@ impl Position {
         }
     }
 
-    /// Appends all pseudo-legal bishop moves to `buf`.
+    /// Appends all legal bishop moves to `buf`. Pinned bishops are constrained
+    /// to the king-pinner ray; adds nothing under double check.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // Bishops are blocked by own pawns at the start.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().bishop_moves(&mut moves);
+    /// p.bishop_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn bishop_moves(&self, buf: &mut Vec<Move>) {
+    pub fn bishop_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let bishops = self.board.bypiece(Piece {
             role: Role::Bishop,
             color: self.color,
         });
+        let occupied = self.board.occupied();
         for from in bishops {
-            for to in ATTACKS.bishop_attacks(from, self.board.occupied()) {
+            let mask = ctx.target_mask(from);
+            for to in ATTACKS.bishop_attacks(from, occupied) & mask {
                 if let Some(m) = self.normal(from, to, Role::Bishop) {
                     buf.push(m);
                 }
@@ -689,24 +763,33 @@ impl Position {
         }
     }
 
-    /// Appends all pseudo-legal rook moves to `buf`.
+    /// Appends all legal rook moves to `buf`. Pinned rooks are constrained
+    /// to the king-pinner ray; adds nothing under double check.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // Rooks are locked in by their own pieces at the start.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().rook_moves(&mut moves);
+    /// p.rook_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn rook_moves(&self, buf: &mut Vec<Move>) {
+    pub fn rook_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
             color: self.color,
         });
+        let occupied = self.board.occupied();
         for from in rooks {
-            for to in ATTACKS.rook_attacks(from, self.board.occupied()) {
+            let mask = ctx.target_mask(from);
+            for to in ATTACKS.rook_attacks(from, occupied) & mask {
                 if let Some(m) = self.normal(from, to, Role::Rook) {
                     buf.push(m);
                 }
@@ -714,31 +797,39 @@ impl Position {
         }
     }
 
-    /// Appends all pseudo-legal queen moves to `buf` (bishop-like + rook-like
-    /// rays).
+    /// Appends all legal queen moves to `buf` (bishop-like + rook-like rays).
+    /// Pinned queens are constrained to the king-pinner ray; adds nothing
+    /// under double check.
     ///
     /// # Example
     /// ```
     /// # use ruchess::position::Position;
+    /// # use ruchess::position::LegalityContext;
     /// # use ruchess::mve::Move;
     /// // The queen has no legal moves from the starting position.
+    /// let p = Position::new();
+    /// let ctx = LegalityContext::compute(&p);
     /// let mut moves: Vec<Move> = Vec::new();
-    /// Position::new().queen_moves(&mut moves);
+    /// p.queen_moves(&mut moves, &ctx);
     /// assert!(moves.is_empty());
     /// ```
-    pub fn queen_moves(&self, buf: &mut Vec<Move>) {
+    pub fn queen_moves(&self, buf: &mut Vec<Move>, ctx: &LegalityContext) {
+        if ctx.is_double_check {
+            return;
+        }
         let queens = self.board.bypiece(Piece {
             role: Role::Queen,
             color: self.color,
         });
         let occupied = self.board.occupied();
         for from in queens {
-            for to in ATTACKS.bishop_attacks(from, occupied) {
+            let mask = ctx.target_mask(from);
+            for to in ATTACKS.bishop_attacks(from, occupied) & mask {
                 if let Some(m) = self.normal(from, to, Role::Queen) {
                     buf.push(m);
                 }
             }
-            for to in ATTACKS.rook_attacks(from, occupied) {
+            for to in ATTACKS.rook_attacks(from, occupied) & mask {
                 if let Some(m) = self.normal(from, to, Role::Queen) {
                     buf.push(m);
                 }
@@ -843,20 +934,22 @@ impl Position {
 /// move buffers.
 pub const MAX_MOVES: usize = 256;
 
-/// Per-position legality info used to filter pseudo-legal moves without
-/// invoking make/is_check on every candidate.
+/// Per-position legality info used by the per-piece generators to emit only
+/// legal moves — no post-filter pass needed.
 ///
-/// Computed once per call to [`Position::valid_moves`]. Encodes:
-/// - `checkers`: bitboard of opponent pieces attacking our king.
-/// - `check_mask`: squares non-king pieces may target. All squares if not
-///   in check; squares between king and checker plus the checker's square
-///   on single check; empty on double check.
-/// - `is_double_check`: true if more than one attacker — only king moves
-///   are legal.
+/// Build one with [`LegalityContext::compute`] and pass it to each per-piece
+/// generator ([`Position::pawn_moves`], [`Position::knight_moves`], …).
+/// Encodes:
+/// - `check_mask`: squares non-king pieces may target. All squares if not in
+///   check; squares between king and checker plus the checker's square on
+///   single check; empty on double check.
+/// - `is_double_check`: true if more than one attacker — only king moves are
+///   legal, so non-king generators bail out immediately.
 /// - `pinned`: bitboard of our pieces pinned to the king by an opponent
 ///   slider. A pinned piece may only move along the line through king and
 ///   pinner.
-struct LegalityContext {
+/// - `king_sq`: square of our king, used to compute the per-pinned-piece ray.
+pub struct LegalityContext {
     king_sq: Square,
     check_mask: Bitboard,
     is_double_check: bool,
@@ -864,7 +957,8 @@ struct LegalityContext {
 }
 
 impl LegalityContext {
-    fn compute(pos: &Position) -> Self {
+    /// Computes the legality context for `pos`'s side to move.
+    pub fn compute(pos: &Position) -> Self {
         let board = &pos.board;
         let us = pos.color;
         let them = us.opponent();
@@ -922,36 +1016,16 @@ impl LegalityContext {
         }
     }
 
-    /// Decides legality of a pseudo-legal `mve`. Mover color is `color` and
-    /// `board` is the pre-move board (used only for the en-passant fallback).
+    /// Returns the bitboard of destinations that satisfy check resolution
+    /// and (if `from` is pinned) the king-pinner ray. Per-piece generators
+    /// AND this with the raw attack pattern to drop illegal targets.
     #[inline(always)]
-    fn is_legal(&self, mve: &Move, board: Board, color: Color) -> bool {
-        // King moves: `king_moves` already filters its own legality (lifts
-        // the king and tests attack). Castles are validated at gen time.
-        if mve.piece.role == Role::King {
-            return true;
+    fn target_mask(&self, from: Square) -> Bitboard {
+        if self.pinned.is_set(from) {
+            self.check_mask & Bitboard(ATTACKS.rays[self.king_sq.0 as usize][from.0 as usize])
+        } else {
+            self.check_mask
         }
-        // Under double check only the king can move.
-        if self.is_double_check {
-            return false;
-        }
-        // En passant: rare discovered-check via removed pawn on the same
-        // rank. Cheap fallback to make/is_check.
-        if mve.enpassant.is_some() {
-            let mut working = board;
-            apply_move(&mut working, mve);
-            return !working.is_check(color);
-        }
-        // Must land on a check-resolving square.
-        if !self.check_mask.is_set(mve.dest) {
-            return false;
-        }
-        // Pinned pieces may only move along the king–pinner line.
-        if self.pinned.is_set(mve.orig) {
-            let ray = Bitboard(ATTACKS.rays[self.king_sq.0 as usize][mve.orig.0 as usize]);
-            return ray.is_set(mve.dest);
-        }
-        true
     }
 }
 
@@ -1112,16 +1186,20 @@ mod tests {
     #[test]
     fn starting_position_pawn_moves_count() {
         // 8 pawns × (1 single push + 1 double push) = 16
+        let p = Position::new();
+        let ctx = LegalityContext::compute(&p);
         let mut buf = Vec::new();
-        Position::new().pawn_moves(&mut buf);
+        p.pawn_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 16);
     }
 
     #[test]
     fn starting_position_knight_moves_count() {
         // 2 knights × 2 destinations each = 4
+        let p = Position::new();
+        let ctx = LegalityContext::compute(&p);
         let mut buf = Vec::new();
-        Position::new().knight_moves(&mut buf);
+        p.knight_moves(&mut buf, &ctx);
         assert_eq!(buf.len(), 4);
     }
 
@@ -1139,9 +1217,11 @@ mod tests {
 
     #[test]
     fn starting_position_no_enpassant() {
-        assert_eq!(Position::new().enpassant_square(), None);
+        let p = Position::new();
+        assert_eq!(p.enpassant_square(), None);
+        let ctx = LegalityContext::compute(&p);
         let mut buf = Vec::new();
-        Position::new().enpassant_moves(&mut buf);
+        p.enpassant_moves(&mut buf, &ctx);
         assert!(buf.is_empty());
     }
 
@@ -1268,7 +1348,8 @@ mod tests {
             "en passant target should be D6 (the square the black pawn passed)"
         );
         let mut eps: Vec<Move> = Vec::new();
-        p.enpassant_moves(&mut eps);
+        let ctx = LegalityContext::compute(&p);
+        p.enpassant_moves(&mut eps, &ctx);
         assert_eq!(eps.len(), 1, "exactly one en-passant move available");
         let m = eps[0];
         assert_eq!(m.orig, square::E5);
@@ -1297,7 +1378,8 @@ mod tests {
         let p = Position::new().with_board(b).with_history(history);
         assert_eq!(p.enpassant_square(), None);
         let mut eps: Vec<Move> = Vec::new();
-        p.enpassant_moves(&mut eps);
+        let ctx = LegalityContext::compute(&p);
+        p.enpassant_moves(&mut eps, &ctx);
         assert!(eps.is_empty());
     }
 
@@ -1581,13 +1663,6 @@ mod proptests {
         p.valid_moves()
     }
 
-    /// Count moves in `buf` that would not leave us in check after apply.
-    fn legal_count(p: &Position, buf: &[Move]) -> usize {
-        buf.iter()
-            .filter(|m| !after_board(p, m).is_check(p.color))
-            .count()
-    }
-
     proptest! {
         // Every generated move is for a piece of the side to move.
         #[test]
@@ -1643,31 +1718,27 @@ mod proptests {
             prop_assert_eq!(collect_valid(&p), collect_valid(&p));
         }
 
-        // `valid_moves()` equals the disjoint union of per-piece-type generators filtered by legality.
+        // `valid_moves()` equals the disjoint union of per-piece-type generators.
         #[test]
         fn partition_matches_per_piece_generators(p in random_position()) {
             let total = collect_valid(&p).len();
+            let ctx = LegalityContext::compute(&p);
             let mut pawns = Vec::new();
-            p.pawn_moves(&mut pawns);
+            p.pawn_moves(&mut pawns, &ctx);
             let mut ep = Vec::new();
-            p.enpassant_moves(&mut ep);
+            p.enpassant_moves(&mut ep, &ctx);
             let mut king = Vec::new();
-            p.king_moves(&mut king);
+            p.king_moves(&mut king, &ctx);
             let mut knight = Vec::new();
-            p.knight_moves(&mut knight);
+            p.knight_moves(&mut knight, &ctx);
             let mut bishop = Vec::new();
-            p.bishop_moves(&mut bishop);
+            p.bishop_moves(&mut bishop, &ctx);
             let mut rook = Vec::new();
-            p.rook_moves(&mut rook);
+            p.rook_moves(&mut rook, &ctx);
             let mut queen = Vec::new();
-            p.queen_moves(&mut queen);
-            let sum = legal_count(&p, &pawns)
-                + legal_count(&p, &ep)
-                + legal_count(&p, &king)
-                + legal_count(&p, &knight)
-                + legal_count(&p, &bishop)
-                + legal_count(&p, &rook)
-                + legal_count(&p, &queen);
+            p.queen_moves(&mut queen, &ctx);
+            let sum = pawns.len() + ep.len() + king.len()
+                + knight.len() + bishop.len() + rook.len() + queen.len();
             prop_assert_eq!(total, sum);
         }
 
