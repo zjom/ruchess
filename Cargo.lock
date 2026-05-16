@@ -1154,7 +1154,6 @@ name = "ruchess"
 version = "0.0.10"
 dependencies = [
  "arrayvec",
- "lazy_static",
  "proptest",
 ]
 

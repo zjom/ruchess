@@ -56,9 +56,7 @@ see: [examples](https://github.com/zjom/ruchess/tree/main/examples) or [ruchess 
 
 ## dependencies
 
-- [lazy_static](https://docs.rs/lazy_static/latest/lazy_static/)
-  - i could probably get rid of it with some refactoring but i am lazy
-- [arrayvec](https://docs.rs/arrayvec/latest/arrayvec/index.html)
+- [arrayvec](https://docs.rs/arrayvec/latest/arrayvec/index.html) to allocate generated moves on stack
 
 ## roadmap
 
