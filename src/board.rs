@@ -216,6 +216,7 @@ impl Board {
         }
     }
 
+    #[inline]
     pub fn set_mut(&mut self, sq: Square, p: Piece) {
         let _ = self.pop_mut(sq);
         self.by_role.update_mut(p.role, |bb| bb.set_mut(sq));
@@ -234,7 +235,7 @@ impl Board {
     /// The caller is responsible for correctness. If `sq` was empty, the
     /// piece is added; if `sq` held exactly `piece`, the piece is removed.
     /// Calling with a mismatched role or color produces an invalid board.
-    #[inline(always)]
+    #[inline]
     pub(crate) fn toggle_piece(&mut self, sq: Square, piece: Piece) {
         let bb = Bitboard::from(sq);
         self.by_role.update_mut(piece.role, |x| x.toggle_mut(bb));
@@ -254,6 +255,7 @@ impl Board {
     /// assert!(!next.is_occupied(square::A1));
     /// ```
     #[must_use]
+    #[inline]
     pub fn pop(self, sq: Square) -> (Self, Option<Piece>) {
         if !self.is_occupied(sq) {
             (self, None)
@@ -269,6 +271,7 @@ impl Board {
         }
     }
 
+    #[inline]
     pub fn pop_mut(&mut self, sq: Square) -> Option<Piece> {
         if !self.is_occupied(sq) {
             None
@@ -291,6 +294,7 @@ impl Board {
     /// assert!(board.is_occupied(square::A1));
     /// assert!(!board.is_occupied(square::E4));
     /// ```
+    #[inline]
     pub fn is_occupied(&self, sq: Square) -> bool {
         self.occupied.is_set(sq)
     }
@@ -303,6 +307,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.occupied().0.count_ones(), 32);
     /// ```
+    #[inline]
     pub fn occupied(&self) -> Bitboard {
         self.occupied
     }
@@ -320,6 +325,7 @@ impl Board {
     /// assert_eq!(piece.role, Role::Rook);
     /// assert_eq!(piece.color, Color::White);
     /// ```
+    #[inline]
     pub fn piece_at(&self, sq: Square) -> Option<Piece> {
         self.color_at(sq)
             .and_then(|c| self.role_at(sq).map(|r| Piece { role: r, color: c }))
@@ -335,6 +341,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.role_at(square::E1), Some(Role::King));
     /// ```
+    #[inline]
     pub fn role_at(&self, sq: Square) -> Option<Role> {
         self.by_role.find(|bb| bb.is_set(sq)).map(|(p, _)| p)
     }
@@ -350,6 +357,7 @@ impl Board {
     /// assert_eq!(board.color_at(square::A1), Some(Color::White));
     /// assert_eq!(board.color_at(square::A8), Some(Color::Black));
     /// ```
+    #[inline]
     pub fn color_at(&self, sq: Square) -> Option<Color> {
         self.by_color.find(|bb| bb.is_set(sq)).map(|(c, _)| c)
     }
@@ -366,6 +374,7 @@ impl Board {
     /// let white_king = Piece { role: Role::King, color: Color::White };
     /// assert!(board.has_piece(white_king));
     /// ```
+    #[inline]
     pub fn has_piece(&self, p: Piece) -> bool {
         self.bypiece(p).is_non_empty()
     }
@@ -379,6 +388,7 @@ impl Board {
     /// let board = Board::new();
     /// assert!(!board.is_check(Color::White));
     /// ```
+    #[inline]
     pub fn is_check(&self, c: Color) -> bool {
         self.attackers(self.king(c), c.opponent()).is_non_empty()
     }
@@ -393,6 +403,7 @@ impl Board {
     /// let board = Board::new();
     /// assert!(!board.is_attacked(square::E2, Color::White));
     /// ```
+    #[inline]
     pub fn is_attacked(&self, sq: Square, c: Color) -> bool {
         self.attackers(sq, c.opponent()).is_non_empty()
     }
@@ -408,6 +419,7 @@ impl Board {
     /// let attackers = board.attackers(square::E3, Color::White);
     /// assert!(attackers.is_non_empty()); // E2 pawn, etc.
     /// ```
+    #[inline]
     pub fn attackers(&self, sq: Square, attacker: Color) -> Bitboard {
         self.bycolor(attacker)
             & (ATTACKS.rook_attacks(sq, self.occupied)
@@ -427,6 +439,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.pawns().0.count_ones(), 16);
     /// ```
+    #[inline]
     pub fn pawns(&self) -> Bitboard {
         self.byrole(Role::Pawn)
     }
@@ -439,6 +452,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.rooks().0.count_ones(), 4);
     /// ```
+    #[inline]
     pub fn rooks(&self) -> Bitboard {
         self.byrole(Role::Rook)
     }
@@ -451,6 +465,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.knights().0.count_ones(), 4);
     /// ```
+    #[inline]
     pub fn knights(&self) -> Bitboard {
         self.byrole(Role::Knight)
     }
@@ -463,6 +478,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.bishops().0.count_ones(), 4);
     /// ```
+    #[inline]
     pub fn bishops(&self) -> Bitboard {
         self.byrole(Role::Bishop)
     }
@@ -475,6 +491,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.queens().0.count_ones(), 2);
     /// ```
+    #[inline]
     pub fn queens(&self) -> Bitboard {
         self.byrole(Role::Queen)
     }
@@ -493,6 +510,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.king(Color::White), square::E1);
     /// ```
+    #[inline]
     pub fn king(&self, c: Color) -> Square {
         self.bypiece(Piece {
             role: Role::King,
@@ -510,6 +528,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.white().0.count_ones(), 16);
     /// ```
+    #[inline]
     pub fn white(&self) -> Bitboard {
         self.bycolor(Color::White)
     }
@@ -522,6 +541,7 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.black().0.count_ones(), 16);
     /// ```
+    #[inline]
     pub fn black(&self) -> Bitboard {
         self.bycolor(Color::Black)
     }
@@ -538,6 +558,7 @@ impl Board {
     /// let white_pawn = Piece { role: Role::Pawn, color: Color::White };
     /// assert_eq!(board.bypiece(white_pawn).0.count_ones(), 8);
     /// ```
+    #[inline]
     pub fn bypiece(&self, Piece { role, color }: Piece) -> Bitboard {
         self.byrole(role) & self.bycolor(color)
     }
@@ -551,10 +572,12 @@ impl Board {
     /// let board = Board::new();
     /// assert_eq!(board.bycolor(Color::White).0.count_ones(), 16);
     /// ```
+    #[inline]
     pub fn bycolor(&self, c: Color) -> Bitboard {
         *self.by_color.get(c)
     }
 
+    #[inline]
     fn byrole(&self, r: Role) -> Bitboard {
         *self.by_role.get(r)
     }
@@ -744,9 +767,7 @@ mod proptests {
     /// actual occupied squares instead of `prop_assume!`-filtering.
     fn board_and_occupied() -> impl Strategy<Value = (Board, Square)> {
         random_board()
-            .prop_filter("need ≥1 occupied square", |b| {
-                b.occupied().is_non_empty()
-            })
+            .prop_filter("need ≥1 occupied square", |b| b.occupied().is_non_empty())
             .prop_flat_map(|b| {
                 let occ: Vec<Square> = b.occupied().into_iter().collect();
                 (Just(b), proptest::sample::select(occ))
