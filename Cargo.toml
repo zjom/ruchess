@@ -12,6 +12,7 @@ repository = "https://github.com/zjom/ruchess"
 arrayvec = "0.7.6"
 
 [dev-dependencies]
+criterion = { version = "0.8.2", default-features = false, features = ["html_reports", "cargo_bench_support"] }
 proptest = "1"
 
 [workspace]
@@ -20,3 +21,7 @@ members = ["tui"]
 [profile.bench]
 inherits = "release"
 debug = true
+
+[[bench]]
+name = "perft"
+harness = false
