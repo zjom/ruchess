@@ -124,7 +124,9 @@ impl History {
             entry.combine(&self.position_hashes)
         };
 
-        let half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
+        let mover_role = prev.board().role_at(mve.orig());
+        let is_capture = crate::position::is_capture(prev.board(), mve);
+        let half_move_clock = if mover_role == Some(Role::Pawn) || is_capture {
             self.half_move_clock.reset()
         } else {
             self.half_move_clock.incr()
@@ -133,7 +135,9 @@ impl History {
         Self {
             position_hashes,
             last_move: Some((*mve).into()),
-            castles: self.castles.update(mve),
+            castles: self
+                .castles
+                .update(mve, mover_role == Some(Role::King), prev.color()),
             unmoved_rooks: self.unmoved_rooks.update(mve),
             half_move_clock,
         }

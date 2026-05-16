@@ -286,7 +286,7 @@ impl Position {
         let buf = self.valid_moves();
         let mve = *buf
             .iter()
-            .find(|m| m.orig == orig && m.dest == dest && m.promotion == promotion)?;
+            .find(|m| m.orig() == orig && m.dest() == dest && m.promo_role() == promotion)?;
         self.make(&mve);
         Some(self)
     }
@@ -336,18 +336,25 @@ impl Position {
         };
         self.history.position_hashes = new_hashes;
 
-        // Apply the rest of the history update in place.
+        // Apply the rest of the history update in place. Half-move-clock
+        // reset and castle-rights update both need the moving piece's role,
+        // which we look up from the still-pre-move board.
+        let mover_role = self.board.role_at(mve.orig());
+        let resets_clock = mover_role == Some(Role::Pawn) || is_capture(&self.board, mve);
         self.history.last_move = Some((*mve).into());
-        self.history.castles = self.history.castles.update(mve);
+        self.history.castles = self
+            .history
+            .castles
+            .update(mve, mover_role == Some(Role::King), self.color);
         self.history.unmoved_rooks = self.history.unmoved_rooks.update(mve);
-        self.history.half_move_clock = if mve.piece.role == Role::Pawn || mve.capture.is_some() {
+        self.history.half_move_clock = if resets_clock {
             self.history.half_move_clock.reset()
         } else {
             self.history.half_move_clock.incr()
         };
 
         // Apply the move's bit toggles to the board, then advance side/ply.
-        apply_move(&mut self.board, mve);
+        apply_move(&mut self.board, mve, self.color);
         self.color = self.color.opponent();
         self.ply = self.ply.incr();
 
@@ -510,7 +517,7 @@ impl Position {
     /// ```
     pub fn valid_moves_at(&self, orig: Square) -> MoveList {
         let mut buf = self.valid_moves();
-        buf.retain(|m| m.orig == orig);
+        buf.retain(|m| m.orig() == orig);
         buf
     }
 
@@ -548,7 +555,7 @@ impl Position {
         for from in pawns {
             let mask = ctx.target_mask(from);
             for to in ATTACKS.pawn_attacks(self.color, from) & them & mask {
-                self.push_pawn_moves(buf, from, to, true);
+                self.push_pawn_moves(buf, from, to);
             }
         }
 
@@ -566,7 +573,7 @@ impl Position {
                 Color::White => to.0 - 8,
                 Color::Black => to.0 + 8,
             });
-            self.push_pawn_moves(buf, from, to, false);
+            self.push_pawn_moves(buf, from, to);
         }
 
         // Double pushes for unpinned pawns.
@@ -581,7 +588,7 @@ impl Position {
                 Color::White => to.0 - 16,
                 Color::Black => to.0 + 16,
             });
-            self.push_pawn_moves(buf, from, to, false);
+            self.push_pawn_moves(buf, from, to);
         }
 
         // Pinned pawn pushes — destination must lie on the pin ray.
@@ -593,7 +600,7 @@ impl Position {
             });
             if !occupied.is_set(single_to) {
                 if mask.is_set(single_to) {
-                    self.push_pawn_moves(buf, from, single_to, false);
+                    self.push_pawn_moves(buf, from, single_to);
                 }
                 if from.rank() == self.color.second_rank() {
                     let double_to = Square(match self.color {
@@ -601,7 +608,7 @@ impl Position {
                         Color::Black => from.0 - 16,
                     });
                     if !occupied.is_set(double_to) && mask.is_set(double_to) {
-                        self.push_pawn_moves(buf, from, double_to, false);
+                        self.push_pawn_moves(buf, from, double_to);
                     }
                 }
             }
@@ -643,15 +650,14 @@ impl Position {
             color: self.color,
         });
         for from in ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns {
-            if let Some(m) = self.enpassant(from, target) {
-                // Discovered-check fallback: en passant removes a pawn from
-                // a different square than the capturer's destination, which
-                // can expose the king. Apply and re-test cheaply.
-                let mut working = self.board;
-                apply_move(&mut working, &m);
-                if !working.is_check(self.color) {
-                    buf.push(m);
-                }
+            let m = self.enpassant(from, target);
+            // Discovered-check fallback: en passant removes a pawn from
+            // a different square than the capturer's destination, which
+            // can expose the king. Apply and re-test cheaply.
+            let mut working = self.board;
+            apply_move(&mut working, &m, self.color);
+            if !working.is_check(self.color) {
+                buf.push(m);
             }
         }
     }
@@ -683,7 +689,7 @@ impl Position {
         let orig = ctx.king_sq;
         let our_pieces = self.board.bycolor(self.color);
         for dest in ATTACKS.king_attacks(orig) & !ctx.danger & !our_pieces {
-            if let Some(m) = self.normal(orig, dest, Role::King) {
+            if let Some(m) = self.normal(orig, dest) {
                 buf.push(m);
             }
         }
@@ -716,7 +722,7 @@ impl Position {
         }) & !ctx.pinned;
         for from in knights {
             for to in ATTACKS.knight_attacks(from) & ctx.check_mask {
-                if let Some(m) = self.normal(from, to, Role::Knight) {
+                if let Some(m) = self.normal(from, to) {
                     buf.push(m);
                 }
             }
@@ -750,7 +756,7 @@ impl Position {
         for from in bishops {
             let mask = ctx.target_mask(from);
             for to in ATTACKS.bishop_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to, Role::Bishop) {
+                if let Some(m) = self.normal(from, to) {
                     buf.push(m);
                 }
             }
@@ -784,7 +790,7 @@ impl Position {
         for from in rooks {
             let mask = ctx.target_mask(from);
             for to in ATTACKS.rook_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to, Role::Rook) {
+                if let Some(m) = self.normal(from, to) {
                     buf.push(m);
                 }
             }
@@ -819,12 +825,12 @@ impl Position {
         for from in queens {
             let mask = ctx.target_mask(from);
             for to in ATTACKS.bishop_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to, Role::Queen) {
+                if let Some(m) = self.normal(from, to) {
                     buf.push(m);
                 }
             }
             for to in ATTACKS.rook_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to, Role::Queen) {
+                if let Some(m) = self.normal(from, to) {
                     buf.push(m);
                 }
             }
@@ -867,54 +873,35 @@ impl Position {
             return None;
         }
 
-        Some(Move::castle(self.color, side, king_from, king_to))
+        Some(Move::castle(king_from, king_to))
     }
 
-    /// Builds a non-special move (quiet push or simple capture) of `role`
-    /// from `orig` to `dest`. Returns `None` if the destination holds one
-    /// of our own pieces or `orig` is empty.
-    fn normal(&self, orig: Square, dest: Square, role: Role) -> Option<Move> {
-        let piece = Piece {
-            role,
-            color: self.color,
-        };
-        if self.board.is_occupied(dest) {
-            if self.board.color_at(dest) == Some(self.color) {
-                return None;
-            }
-            // Captured piece's color is fixed (our opponent — same-color
-            // captures rejected just above). Record the role so `make` can
-            // apply the capture without re-scanning the board.
-            let captured_role = self.board.role_at(dest)?;
-            Some(Move::capture(piece, orig, dest, dest, captured_role))
-        } else {
-            Some(Move::quiet(piece, orig, dest))
+    /// Builds a non-special move (quiet push or simple capture) from `orig`
+    /// to `dest`. Returns `None` if the destination holds one of our own
+    /// pieces.
+    fn normal(&self, orig: Square, dest: Square) -> Option<Move> {
+        if self.board.color_at(dest) == Some(self.color) {
+            return None;
         }
+        Some(Move::normal(orig, dest))
     }
 
-    /// Builds an en-passant [`Move`] from `orig` to `dest`. The captured
-    /// pawn sits on the file of `dest` and the rank of `orig`.
-    fn enpassant(&self, orig: Square, dest: Square) -> Option<Move> {
-        let captured_sq = Square::from_file_and_rank(dest.file(), orig.rank());
-        Some(Move::enpassant(self.color, orig, dest, captured_sq))
+    /// Builds an en-passant [`Move`] from `orig` to `dest`.
+    fn enpassant(&self, orig: Square, dest: Square) -> Move {
+        Move::enpassant(orig, dest)
     }
 
     /// Expands a single pawn step from `from` to `to` into the appropriate
     /// move set and appends it to `buf`: four promotion moves if `from` is on
     /// the seventh rank (relative to the mover), otherwise one ordinary pawn
     /// move.
-    fn push_pawn_moves(&self, buf: &mut MoveList, from: Square, to: Square, is_capture: bool) {
+    fn push_pawn_moves(&self, buf: &mut MoveList, from: Square, to: Square) {
         let is_promotion = from.rank() == self.color.seventh_rank();
         if is_promotion {
-            let captured = if is_capture {
-                self.board.role_at(to).map(|r| (to, r))
-            } else {
-                None
-            };
             for r in PromotableRole::ROLES {
-                buf.push(Move::promotion(self.color, from, to, r, captured));
+                buf.push(Move::promotion(from, to, r));
             }
-        } else if let Some(m) = self.normal(from, to, Role::Pawn) {
+        } else if let Some(m) = self.normal(from, to) {
             buf.push(m);
         }
     }
@@ -1062,47 +1049,70 @@ impl LegalityContext {
 /// bits. Used as the shared make-move primitive by [`Position::make`] and
 /// by the legality filter in [`Position::valid_moves`].
 ///
-/// Symmetric: applying twice is a no-op. The move's `captured_role` field
-/// (filled at generation time) supplies enough information to apply captures
-/// without scanning the board.
+/// The packed [`Move`] carries only origin/destination and a flag —
+/// `mover_color` is the side making the move, and the moving piece's role
+/// plus any captured piece are looked up from `board` before mutation.
+///
+/// Symmetric: applying twice is a no-op.
 #[inline(always)]
-pub(crate) fn apply_move(board: &mut Board, mve: &Move) {
-    let mover = mve.piece;
+pub(crate) fn apply_move(board: &mut Board, mve: &Move, mover_color: Color) {
+    let orig = mve.orig();
+    let dest = mve.dest();
 
-    if let Some(side) = mve.castle {
-        let color = mover.color;
+    if let Some(side) = mve.castle_side() {
         let king = Piece {
             role: Role::King,
-            color,
+            color: mover_color,
         };
         let rook = Piece {
             role: Role::Rook,
-            color,
+            color: mover_color,
         };
-        let rook_from = color.castle_square(side);
-        let (king_to, rook_to, _, _) = castle_squares(color, side);
-        board.toggle_piece(mve.orig, king);
+        let rook_from = mover_color.castle_square(side);
+        let (king_to, rook_to, _, _) = castle_squares(mover_color, side);
+        board.toggle_piece(orig, king);
         board.toggle_piece(king_to, king);
         board.toggle_piece(rook_from, rook);
         board.toggle_piece(rook_to, rook);
         return;
     }
 
-    // Remove captured piece, if any.
-    if let (Some(cap_sq), Some(cap_role)) = (mve.capture, mve.captured_role) {
-        let captured = Piece {
-            role: cap_role,
-            color: mover.color.opponent(),
-        };
-        board.toggle_piece(cap_sq, captured);
+    let mover_role = board
+        .role_at(orig)
+        .expect("apply_move: origin square is empty");
+    let mover = Piece {
+        role: mover_role,
+        color: mover_color,
+    };
+
+    // Remove captured piece, if any. For en-passant the captured pawn is on
+    // the file of `dest` and the rank of `orig`; otherwise the capture, if
+    // any, sits on `dest`.
+    if mve.is_enpassant() {
+        let cap_sq = Square::from_file_and_rank(dest.file(), orig.rank());
+        board.toggle_piece(
+            cap_sq,
+            Piece {
+                role: Role::Pawn,
+                color: mover_color.opponent(),
+            },
+        );
+    } else if let Some(cap_role) = board.role_at(dest) {
+        board.toggle_piece(
+            dest,
+            Piece {
+                role: cap_role,
+                color: mover_color.opponent(),
+            },
+        );
     }
 
     // Lift the mover off its origin square.
-    board.toggle_piece(mve.orig, mover);
+    board.toggle_piece(orig, mover);
 
     // Place the resulting piece at the destination: promoted role on a
     // promotion, otherwise the mover itself.
-    let landed = match mve.promotion {
+    let landed = match mve.promo_role() {
         Some(p) => Piece {
             role: match p {
                 PromotableRole::Queen => Role::Queen,
@@ -1110,11 +1120,18 @@ pub(crate) fn apply_move(board: &mut Board, mve: &Move) {
                 PromotableRole::Bishop => Role::Bishop,
                 PromotableRole::Knight => Role::Knight,
             },
-            color: mover.color,
+            color: mover_color,
         },
         None => mover,
     };
-    board.toggle_piece(mve.dest, landed);
+    board.toggle_piece(dest, landed);
+}
+
+/// True iff `mve` captures a piece — used by callers (half-move clock,
+/// move-ordering, …) that need this property pre-apply.
+#[inline]
+pub(crate) fn is_capture(board: &Board, mve: &Move) -> bool {
+    mve.is_enpassant() || board.is_occupied(mve.dest())
 }
 
 /// For `color` castling on `side`, returns
@@ -1236,7 +1253,7 @@ mod tests {
     fn starting_position_no_castling() {
         let castles: Vec<_> = collect_valid(&Position::new())
             .into_iter()
-            .filter(|m| m.castle.is_some())
+            .filter(|m| m.is_castle())
             .collect();
         assert!(
             castles.is_empty(),
@@ -1258,7 +1275,7 @@ mod tests {
     fn starting_position_no_promotion() {
         let proms: Vec<_> = collect_valid(&Position::new())
             .into_iter()
-            .filter(|m| m.promotion.is_some())
+            .filter(|m| m.is_promotion())
             .collect();
         assert!(proms.is_empty());
     }
@@ -1327,7 +1344,7 @@ mod tests {
     fn pawn_double_push_emits_two_destinations() {
         let moves = collect_at(&Position::new(), square::E2);
         assert_eq!(moves.len(), 2);
-        let dests: Vec<_> = moves.iter().map(|m| m.dest).collect();
+        let dests: Vec<_> = moves.iter().map(|m| m.dest()).collect();
         assert!(dests.contains(&square::E3));
         assert!(dests.contains(&square::E4));
     }
@@ -1343,7 +1360,7 @@ mod tests {
         let p = pos_from(b);
         let pushes: Vec<_> = collect_at(&p, square::E2)
             .into_iter()
-            .filter(|m| m.capture.is_none())
+            .filter(|m| !p.board().is_occupied(m.dest()))
             .collect();
         assert!(
             pushes.is_empty(),
@@ -1381,10 +1398,9 @@ mod tests {
         p.enpassant_moves(&mut eps, &ctx);
         assert_eq!(eps.len(), 1, "exactly one en-passant move available");
         let m = eps[0];
-        assert_eq!(m.orig, square::E5);
-        assert_eq!(m.dest, square::D6);
-        assert_eq!(m.capture, Some(square::D5));
-        assert!(m.enpassant.is_some());
+        assert_eq!(m.orig(), square::E5);
+        assert_eq!(m.dest(), square::D6);
+        assert!(m.is_enpassant());
     }
 
     #[test]
@@ -1423,14 +1439,14 @@ mod tests {
         let p = pos_from(b);
         let moves = collect_at(&p, square::A7);
         assert_eq!(moves.len(), 4, "4 promotion choices; got {moves:?}");
-        let promos: Vec<_> = moves.iter().filter_map(|m| m.promotion).collect();
+        let promos: Vec<_> = moves.iter().filter_map(|m| m.promo_role()).collect();
         assert!(promos.contains(&PromotableRole::Queen));
         assert!(promos.contains(&PromotableRole::Rook));
         assert!(promos.contains(&PromotableRole::Bishop));
         assert!(promos.contains(&PromotableRole::Knight));
         for m in &moves {
-            assert_eq!(m.dest, square::A8);
-            assert_eq!(m.capture, None);
+            assert_eq!(m.dest(), square::A8);
+            assert!(!p.board().is_occupied(m.dest()));
         }
     }
 
@@ -1443,7 +1459,7 @@ mod tests {
         let p = pos_from(b);
         let moves = collect_at(&p, square::A6);
         assert!(
-            moves.iter().all(|m| m.promotion.is_none()),
+            moves.iter().all(|m| !m.is_promotion()),
             "no promotion on rank-6 push, got {moves:?}"
         );
     }
@@ -1465,12 +1481,12 @@ mod tests {
         let p = pos_from(castling_board());
         let castles: Vec<_> = collect_valid(&p)
             .into_iter()
-            .filter(|m| m.castle == Some(Side::King))
+            .filter(|m| m.castle_side() == Some(Side::King))
             .collect();
         assert_eq!(castles.len(), 1);
         let m = castles[0];
-        assert_eq!(m.orig, square::E1);
-        assert_eq!(m.dest, square::G1);
+        assert_eq!(m.orig(), square::E1);
+        assert_eq!(m.dest(), square::G1);
     }
 
     #[test]
@@ -1478,11 +1494,11 @@ mod tests {
         let p = pos_from(castling_board());
         let castles: Vec<_> = collect_valid(&p)
             .into_iter()
-            .filter(|m| m.castle == Some(Side::Queen))
+            .filter(|m| m.castle_side() == Some(Side::Queen))
             .collect();
         assert_eq!(castles.len(), 1);
-        assert_eq!(castles[0].orig, square::E1);
-        assert_eq!(castles[0].dest, square::C1);
+        assert_eq!(castles[0].orig(), square::E1);
+        assert_eq!(castles[0].dest(), square::C1);
     }
 
     #[test]
@@ -1492,7 +1508,7 @@ mod tests {
         let p = pos_from(b);
         let king_castle = collect_valid(&p)
             .into_iter()
-            .find(|m| m.castle == Some(Side::King));
+            .find(|m| m.castle_side() == Some(Side::King));
         assert!(
             king_castle.is_none(),
             "F-file rook prevents kingside castle"
@@ -1508,7 +1524,7 @@ mod tests {
             p.is_check(),
             "white king on E1 is in check from black Q on E4"
         );
-        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.is_castle());
         assert!(
             any_castle.is_none(),
             "no castles allowed while in check, got {any_castle:?}"
@@ -1521,14 +1537,14 @@ mod tests {
         let p = pos_from(b);
         let king_castle = collect_valid(&p)
             .into_iter()
-            .find(|m| m.castle == Some(Side::King));
+            .find(|m| m.castle_side() == Some(Side::King));
         assert!(king_castle.is_none(), "bishop on F1 blocks kingside castle");
     }
 
     #[test]
     fn cannot_castle_without_rights() {
         let p = pos_from(castling_board()).with_castles(Castles::new(false, false, false, false));
-        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.is_castle());
         assert!(any_castle.is_none());
     }
 
@@ -1541,7 +1557,7 @@ mod tests {
         let p = Position::new()
             .with_board(castling_board())
             .with_history(history);
-        let any_castle = collect_valid(&p).into_iter().find(|m| m.castle.is_some());
+        let any_castle = collect_valid(&p).into_iter().find(|m| m.is_castle());
         assert!(any_castle.is_none(), "no castle when rooks have moved");
     }
 
@@ -1577,7 +1593,7 @@ mod tests {
         for i in 0u8..64 {
             let s = Square(i);
             let direct = collect_at(&p, s).len();
-            let filtered = all.iter().filter(|m| m.orig == s).count();
+            let filtered = all.iter().filter(|m| m.orig() == s).count();
             assert_eq!(direct, filtered, "mismatch at square {s}");
         }
     }
@@ -1683,7 +1699,7 @@ mod proptests {
     /// pre-Phase-3 `m.after` field that move generation used to materialize.
     fn after_board(p: &Position, mve: &Move) -> Board {
         let mut b = *p.board();
-        apply_move(&mut b, mve);
+        apply_move(&mut b, mve, p.color());
         b
     }
 
@@ -1693,11 +1709,11 @@ mod proptests {
     }
 
     proptest! {
-        // Every generated move is for a piece of the side to move.
+        // Every generated move originates from a square occupied by the side to move.
         #[test]
         fn move_color_matches_side_to_move(p in random_position()) {
             for m in collect_valid(&p) {
-                prop_assert_eq!(m.piece.color, p.color());
+                prop_assert_eq!(p.board().color_at(m.orig()), Some(p.color()));
             }
         }
 
@@ -1705,15 +1721,17 @@ mod proptests {
         #[test]
         fn move_orig_not_equal_dest(p in random_position()) {
             for m in collect_valid(&p) {
-                prop_assert_ne!(m.orig, m.dest);
+                prop_assert_ne!(m.orig(), m.dest());
             }
         }
 
-        // The origin square holds the piece claimed by the move.
+        // The origin square is occupied by a piece of the side to move.
         #[test]
         fn move_origin_holds_claimed_piece(p in random_position()) {
             for m in collect_valid(&p) {
-                prop_assert_eq!(p.board().piece_at(m.orig), Some(m.piece));
+                let piece = p.board().piece_at(m.orig());
+                prop_assert!(piece.is_some());
+                prop_assert_eq!(piece.unwrap().color, p.color());
             }
         }
 
@@ -1778,7 +1796,7 @@ mod proptests {
             for i in 0u8..64 {
                 let s = Square(i);
                 let buf = p.valid_moves_at(s);
-                let filtered = all.iter().filter(|m| m.orig == s).count();
+                let filtered = all.iter().filter(|m| m.orig() == s).count();
                 prop_assert_eq!(buf.len(), filtered);
             }
         }
@@ -1794,9 +1812,9 @@ mod proptests {
         fn mve_with_listed_move_works(p in random_position()) {
             if let Some(m) = collect_valid(&p).into_iter().next() {
                 let expected_after = after_board(&p, &m);
-                let next = p.clone().mve(m.orig, m.dest, m.promotion).expect("listed move must succeed");
+                let next = p.clone().mve(m.orig(), m.dest(), m.promo_role()).expect("listed move must succeed");
                 prop_assert_eq!(next.color(), p.color().opponent());
-                if m.promotion.is_none() {
+                if !m.is_promotion() {
                     prop_assert_eq!(*next.board(), expected_after);
                 }
             }
@@ -1807,9 +1825,9 @@ mod proptests {
         fn promotion_only_on_opponent_back_rank(p in random_position()) {
             let opp_back = p.color().opponent().back_rank();
             for m in collect_valid(&p) {
-                if m.promotion.is_some() {
-                    prop_assert_eq!(m.dest.rank(), opp_back);
-                    prop_assert_eq!(m.piece.role, Role::Pawn);
+                if m.is_promotion() {
+                    prop_assert_eq!(m.dest().rank(), opp_back);
+                    prop_assert_eq!(p.board().role_at(m.orig()), Some(Role::Pawn));
                 }
             }
         }
@@ -1838,7 +1856,7 @@ mod proptests {
         #[test]
         fn make_matches_persistent_mve(p in random_position()) {
             for m in collect_valid(&p) {
-                let persistent = p.clone().mve(m.orig, m.dest, m.promotion).unwrap();
+                let persistent = p.clone().mve(m.orig(), m.dest(), m.promo_role()).unwrap();
                 let mut mutable = p.clone();
                 mutable.make(&m);
                 prop_assert_eq!(&mutable, &persistent);

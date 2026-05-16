@@ -39,7 +39,6 @@ use crate::{
     bitboard::Bitboard,
     color::Color,
     mve::Move,
-    role::Role,
     side::Side,
     square::{self, Square},
 };
@@ -245,28 +244,24 @@ impl Castles {
 
     /// Updates castling rights based on a [`Move`].
     ///
-    /// If the king moves or a castling move is performed, all rights for that color are removed.
+    /// If the king moves or a castling move is performed, all rights for
+    /// `mover_color` are removed. The caller supplies `mover_is_king`
+    /// because the packed [`Move`] does not carry the moving piece's role.
     ///
     /// # Example
     /// ```
     /// # use ruchess::castles::Castles;
     /// # use ruchess::mve::Move;
-    /// # use ruchess::piece::Piece;
-    /// # use ruchess::role::Role;
     /// # use ruchess::color::Color;
     /// # use ruchess::square;
     /// let castles = Castles::standard();
-    /// let m = Move::quiet(
-    ///     Piece { role: Role::King, color: Color::White },
-    ///     square::E1,
-    ///     square::E2,
-    /// );
-    /// let updated = castles.update(&m);
+    /// let m = Move::normal(square::E1, square::E2);
+    /// let updated = castles.update(&m, true, Color::White);
     /// assert!(!updated.can(Color::White));
     /// ```
-    pub fn update(self, m: &Move) -> Self {
-        if m.piece.role == Role::King || m.castle.is_some() {
-            self.without(m.piece.color)
+    pub fn update(self, m: &Move, mover_is_king: bool, mover_color: Color) -> Self {
+        if mover_is_king || m.is_castle() {
+            self.without(mover_color)
         } else {
             self
         }
@@ -340,7 +335,6 @@ impl From<Castles> for Bitboard {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::piece::Piece;
 
     #[test]
     fn standard_has_all_four_rights() {
@@ -506,29 +500,27 @@ mod tests {
         assert_eq!(bb, Castles::INIT.0);
     }
 
-    fn quiet(role: Role, color: Color) -> Move {
-        Move::quiet(Piece { role, color }, square::E1, square::E1)
-    }
-
     #[test]
     fn update_king_move_clears_color() {
-        let c = Castles::standard().update(&quiet(Role::King, Color::White));
+        let m = Move::normal(square::E1, square::E2);
+        let c = Castles::standard().update(&m, true, Color::White);
         assert!(!c.can(Color::White));
         assert!(c.can(Color::Black));
     }
 
     #[test]
     fn update_castle_clears_color() {
-        let m = Move::castle(Color::Black, Side::King, square::E1, square::E1);
-        let c = Castles::standard().update(&m);
+        let m = Move::castle(square::E8, square::G8);
+        let c = Castles::standard().update(&m, true, Color::Black);
         assert!(c.can(Color::White));
         assert!(!c.can(Color::Black));
     }
 
     #[test]
     fn update_non_king_quiet_move_is_noop() {
+        let m = Move::normal(square::A2, square::A3);
         let before = Castles::standard();
-        let after = before.update(&quiet(Role::Rook, Color::White));
+        let after = before.update(&m, false, Color::White);
         assert_eq!(before, after);
     }
 }

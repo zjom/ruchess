@@ -32,9 +32,6 @@
 //! # use ruchess::unmoved_rooks::UnmovedRooks;
 //! # use ruchess::square;
 //! # use ruchess::mve::Move;
-//! # use ruchess::piece::Piece;
-//! # use ruchess::role::Role;
-//! # use ruchess::color::Color;
 //! let mut ur = UnmovedRooks::standard();
 //!
 //! // Initially, all four rooks are "unmoved"
@@ -44,11 +41,7 @@
 //! assert!(ur.contains(square::H8));
 //!
 //! // Suppose white moves the rook from A1 to A3
-//! # let m = Move::quiet(
-//! #     Piece { role: Role::Rook, color: Color::White },
-//! #     square::A1,
-//! #     square::A3,
-//! # );
+//! # let m = Move::normal(square::A1, square::A3);
 //! ur = ur.update(&m);
 //!
 //! assert!(!ur.contains(square::A1)); // No longer unmoved
@@ -120,21 +113,14 @@ impl UnmovedRooks {
     /// # use ruchess::unmoved_rooks::UnmovedRooks;
     /// # use ruchess::mve::Move;
     /// # use ruchess::square;
-    /// # use ruchess::piece::Piece;
-    /// # use ruchess::role::Role;
-    /// # use ruchess::color::Color;
     /// let ur = UnmovedRooks::standard();
-    /// # let m = Move::quiet(
-    /// #     Piece { role: Role::Rook, color: Color::White },
-    /// #     square::A1,
-    /// #     square::A3,
-    /// # );
+    /// # let m = Move::normal(square::A1, square::A3);
     /// let updated = ur.update(&m);
     /// assert!(!updated.contains(square::A1));
     /// assert!(updated.contains(square::H1));
     /// ```
     pub fn update(self, m: &Move) -> Self {
-        UnmovedRooks(!(Bitboard::from(m.orig) | Bitboard::from(m.dest)) & self)
+        UnmovedRooks(!(Bitboard::from(m.orig()) | Bitboard::from(m.dest())) & self)
     }
 
     /// Returns `true` if there are no more unmoved rooks remaining.

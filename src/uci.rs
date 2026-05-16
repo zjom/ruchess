@@ -47,15 +47,8 @@ impl Uci {
     /// ```
     /// # use ruchess::uci::Uci;
     /// # use ruchess::mve::Move;
-    /// # use ruchess::piece::Piece;
-    /// # use ruchess::role::Role;
-    /// # use ruchess::color::Color;
     /// # use ruchess::square;
-    /// let m = Move::quiet(
-    ///     Piece { role: Role::Pawn, color: Color::White },
-    ///     square::E2,
-    ///     square::E4,
-    /// );
+    /// let m = Move::normal(square::E2, square::E4);
     /// let u = Uci::from_move(m);
     /// assert_eq!(u.orig, square::E2);
     /// assert_eq!(u.dest, square::E4);
@@ -63,9 +56,9 @@ impl Uci {
     /// ```
     pub fn from_move(m: Move) -> Self {
         Self {
-            orig: m.orig,
-            dest: m.dest,
-            promotion: m.promotion,
+            orig: m.orig(),
+            dest: m.dest(),
+            promotion: m.promo_role(),
         }
     }
 
