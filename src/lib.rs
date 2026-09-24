@@ -28,7 +28,7 @@
 //! - [`mve`], [`uci`] — move representation and UCI parsing.
 //! - [`castles`], [`unmoved_rooks`] — castling rights and rook tracking.
 //! - [`halfmoveclock`], [`ply`] — clocks for the fifty-move rule and side to move.
-//! - [`hash`] — Zobrist hashing and repetition trails.
+//! - [`hash`] — Zobrist hashing.
 //! - [`history`] — per-position history (last move, castles, clock, hashes).
 //! - [`position`] — a complete game state with legal-move generation.
 //! - [`outcome`] — terminal results (win, draw, draw reason).
@@ -53,6 +53,7 @@ pub mod piece;
 pub mod ply;
 pub mod position;
 pub mod rank;
+mod repetition;
 pub mod role;
 pub mod side;
 pub mod square;

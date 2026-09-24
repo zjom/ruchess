@@ -35,12 +35,12 @@ use crate::{
     color::{Color, ParseColorError},
     file::File,
     halfmoveclock::HalfMoveClock,
-    hash::PositionHash,
     history::History,
     piece::Piece,
     ply::Ply,
     position::Position,
     rank::Rank,
+    repetition::RepetitionTrail,
     role::Role,
     square::Square,
     uci::Uci,
@@ -88,7 +88,7 @@ pub fn parse(s: &str) -> Result<Position, ParseFenError> {
         castles,
         unmoved_rooks: UnmovedRooks::from_board(board),
         half_move_clock,
-        position_hashes: PositionHash::empty(),
+        repetition_trail: RepetitionTrail::new(),
     };
 
     Ok(Position::new()

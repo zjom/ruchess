@@ -113,7 +113,7 @@ fn eval(position: &Position) -> Option<Outcome> {
 
     if is_insufficient_material(position.board()) {
         Some(Outcome::Draw(DrawReason::InsufficientMaterial))
-    } else if position.history().is_threefold_repetition() {
+    } else if position.repetitions() >= 3 {
         Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
     } else if position.history().half_moves() >= 50 {
         Some(Outcome::Draw(DrawReason::FiftyMoveRule))
@@ -166,5 +166,50 @@ impl Display for Game {
                 self.position.ply().full_move_number()
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn play(mut game: Game, moves: &[&str]) -> Vec<Option<Outcome>> {
+        moves
+            .iter()
+            .map(|m| {
+                game = game.clone().mve(&Uci::from_str(m).unwrap()).unwrap();
+                game.outcome()
+            })
+            .collect()
+    }
+
+    const KNIGHT_SHUFFLE: [&str; 8] = [
+        "g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8",
+    ];
+
+    #[test]
+    fn threefold_declared_on_the_ply_the_third_occurrence_happens() {
+        // The starting position occurs at plies 0, 4 and 8.
+        let outcomes = play(Game::new(), &KNIGHT_SHUFFLE);
+        assert!(outcomes[..7].iter().all(Option::is_none), "{outcomes:?}");
+        assert_eq!(
+            outcomes[7],
+            Some(Outcome::Draw(DrawReason::ThreeFoldRepetition))
+        );
+    }
+
+    #[test]
+    fn no_repetition_across_an_irreversible_move() {
+        // Pawn pushes interleaved with knight shuffles never recreate a
+        // position: each push changes the placement irreversibly.
+        let outcomes = play(
+            Game::new(),
+            &[
+                "g1f3", "g8f6", "f3g1", "f6g8", "e2e3", "e7e6", "g1f3", "g8f6", "f3g1",
+                "f6g8",
+            ],
+        );
+        assert!(outcomes.iter().all(Option::is_none), "{outcomes:?}");
     }
 }

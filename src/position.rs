@@ -85,7 +85,6 @@ pub struct Undo {
     prior_unmoved_rooks: crate::unmoved_rooks::UnmovedRooks,
     prior_half_move_clock: crate::halfmoveclock::HalfMoveClock,
     prior_last_move: Option<Uci>,
-    prior_position_hashes: crate::hash::PositionHash,
 }
 
 impl Position {
@@ -115,8 +114,7 @@ impl Position {
     /// Standard starting position with repetition tracking turned off.
     ///
     /// Use this for perft, fixed-depth search, and any workload that never
-    /// queries [`History::is_threefold_repetition`] — it skips the Zobrist
-    /// hash computation and the per-move `Vec<u8>` growth.
+    /// asks for [`Self::repetitions`] — it skips the per-move Zobrist hash.
     ///
     /// See [`History::new_no_repetition`].
     pub fn new_no_repetition() -> Self {
@@ -135,7 +133,7 @@ impl Position {
     pub fn without_repetition(self) -> Self {
         Self {
             history: History {
-                position_hashes: crate::hash::PositionHash::disabled(),
+                repetition_trail: crate::repetition::RepetitionTrail::Disabled,
                 ..self.history
             },
             ..self
@@ -321,20 +319,10 @@ impl Position {
         let prior_half_move_clock = self.history.half_move_clock;
         let prior_last_move = self.history.last_move;
 
-        // Compute the new hash trail before mutating board/color (the hash
-        // depends on the prior position state). For Disabled, no work happens.
-        let prior_position_hashes = std::mem::replace(
-            &mut self.history.position_hashes,
-            crate::hash::PositionHash::Disabled,
-        );
-        let new_hashes = if prior_position_hashes.is_disabled() {
-            crate::hash::PositionHash::Disabled
-        } else {
-            let entry =
-                crate::hash::PositionHash::from_hash(crate::hash::Hash::from_position(self));
-            entry.combine(&prior_position_hashes)
-        };
-        self.history.position_hashes = new_hashes;
+        // Record the position being left, before anything is mutated.
+        let mut trail = std::mem::take(&mut self.history.repetition_trail);
+        trail.record(self);
+        self.history.repetition_trail = trail;
 
         // Apply the rest of the history update in place. Half-move-clock
         // reset and castle-rights update both need the moving piece's role,
@@ -364,7 +352,6 @@ impl Position {
             prior_unmoved_rooks,
             prior_half_move_clock,
             prior_last_move,
-            prior_position_hashes,
         }
     }
 
@@ -382,7 +369,7 @@ impl Position {
         self.history.unmoved_rooks = undo.prior_unmoved_rooks;
         self.history.half_move_clock = undo.prior_half_move_clock;
         self.history.last_move = undo.prior_last_move;
-        self.history.position_hashes = undo.prior_position_hashes;
+        self.history.repetition_trail.forget_last();
     }
 
     /// Returns a reference to the underlying [`Board`].
@@ -427,6 +414,25 @@ impl Position {
     /// Returns the current ply (number of half-moves played).
     pub fn ply(&self) -> Ply {
         self.ply
+    }
+
+    /// How many times this position has occurred in the game, counting
+    /// itself. Positions match when placement, side to move, castling rights
+    /// and en-passant possibility all agree. Always 1 when repetition
+    /// tracking is off (see [`Self::new_no_repetition`]).
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::position::Position;
+    /// # use ruchess::square::*;
+    /// let mut p = Position::new();
+    /// for (o, d) in [(G1, F3), (G8, F6), (F3, G1), (F6, G8)] {
+    ///     p = p.mve(o, d, None).unwrap();
+    /// }
+    /// assert_eq!(p.repetitions(), 2);
+    /// ```
+    pub fn repetitions(&self) -> usize {
+        self.history.repetition_trail.repetitions(self)
     }
 
     /// Returns `true` if the side to move is in check.
@@ -1589,6 +1595,57 @@ mod tests {
             let filtered = all.iter().filter(|m| m.orig() == s).count();
             assert_eq!(direct, filtered, "mismatch at square {s}");
         }
+    }
+
+    // ── Repetitions ──────────────────────────────────────────────────────
+
+    fn knight_shuffle(mut p: Position) -> Vec<usize> {
+        let mut counts = vec![p.repetitions()];
+        for _ in 0..2 {
+            for (o, d) in [
+                (square::G1, square::F3),
+                (square::G8, square::F6),
+                (square::F3, square::G1),
+                (square::F6, square::G8),
+            ] {
+                p = p.mve(o, d, None).unwrap();
+                counts.push(p.repetitions());
+            }
+        }
+        counts
+    }
+
+    #[test]
+    fn repetitions_count_the_current_position() {
+        assert_eq!(
+            knight_shuffle(Position::new()),
+            vec![1, 1, 1, 1, 2, 2, 2, 2, 3]
+        );
+    }
+
+    #[test]
+    fn repetitions_include_the_position_a_fen_starts_from() {
+        let p = crate::fen::parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+            .unwrap();
+        assert_eq!(knight_shuffle(p)[8], 3);
+    }
+
+    #[test]
+    fn repetitions_are_always_one_when_tracking_is_off() {
+        assert!(
+            knight_shuffle(Position::new_no_repetition())
+                .iter()
+                .all(|&n| n == 1)
+        );
+    }
+
+    #[test]
+    fn unmake_forgets_the_recorded_position() {
+        let mut p = Position::new();
+        let m = Move::normal(square::G1, square::F3);
+        let undo = p.make(&m);
+        p.unmake(undo);
+        assert_eq!(p, Position::new());
     }
 }
 

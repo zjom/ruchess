@@ -2,15 +2,15 @@
 //!
 //! [`History`] bundles the per-position bookkeeping that the bare
 //! [`Board`](crate::board::Board) doesn't carry: the previous move (as UCI),
-//! castling rights, which rooks have not moved, the fifty-move clock, and a
-//! rolling trail of Zobrist hashes used for repetition detection.
+//! castling rights, which rooks have not moved, the fifty-move clock, and the
+//! repetition trail.
 //!
 //! `History` is updated only by
 //! [`Position::make`](crate::position::Position::make) and
 //! [`Position::unmake`](crate::position::Position::unmake).
 
 use crate::{
-    castles::Castles, halfmoveclock::HalfMoveClock, hash::PositionHash, uci::Uci,
+    castles::Castles, halfmoveclock::HalfMoveClock, repetition::RepetitionTrail, uci::Uci,
     unmoved_rooks::UnmovedRooks,
 };
 
@@ -25,14 +25,15 @@ pub struct History {
     pub unmoved_rooks: UnmovedRooks,
     /// Half-moves since the last pawn move or capture (for the 50-move rule).
     pub half_move_clock: HalfMoveClock,
-    /// Trail of Zobrist hashes used to detect repetitions.
-    pub position_hashes: PositionHash,
+    /// Earlier positions of the game, for
+    /// [`Position::repetitions`](crate::position::Position::repetitions).
+    pub(crate) repetition_trail: RepetitionTrail,
 }
 
 impl History {
     /// Returns the starting-position history: no prior move, standard
-    /// castling rights, all four rooks unmoved, clock at zero, empty hash
-    /// trail.
+    /// castling rights, all four rooks unmoved, clock at zero, empty
+    /// repetition trail.
     ///
     /// # Example
     /// ```
@@ -47,27 +48,26 @@ impl History {
             castles: Castles::standard(),
             unmoved_rooks: UnmovedRooks::standard(),
             half_move_clock: HalfMoveClock::new(),
-            position_hashes: PositionHash::empty(),
+            repetition_trail: RepetitionTrail::new(),
         }
     }
 
     /// Like [`Self::new`], but with repetition tracking permanently disabled.
     ///
-    /// Skips the Zobrist hash computation and the `Vec<u8>` growth that
-    /// [`Position::make`](crate::position::Position::make) would otherwise do
-    /// on every move. Use this for
-    /// perft, fixed-depth search, and any other workload that never calls
-    /// [`Self::is_threefold_repetition`] or [`Self::is_fivefold_repetition`].
+    /// Skips the Zobrist hash that
+    /// [`Position::make`](crate::position::Position::make) would otherwise
+    /// compute on every move. Use this for perft, fixed-depth search, and any
+    /// other workload that never asks for
+    /// [`Position::repetitions`](crate::position::Position::repetitions).
     ///
-    /// Once disabled, the `Disabled` state propagates through every
-    /// descendant position.
+    /// Tracking stays off for every position played from this one.
     pub fn new_no_repetition() -> Self {
         Self {
             last_move: None,
             castles: Castles::standard(),
             unmoved_rooks: UnmovedRooks::standard(),
             half_move_clock: HalfMoveClock::new(),
-            position_hashes: PositionHash::disabled(),
+            repetition_trail: RepetitionTrail::Disabled,
         }
     }
 
@@ -84,18 +84,6 @@ impl History {
     #[must_use]
     pub fn with_castles(self, castles: Castles) -> Self {
         Self { castles, ..self }
-    }
-
-    /// Returns `true` if the current position has appeared at least three
-    /// times in the recorded hash trail.
-    pub fn is_threefold_repetition(&self) -> bool {
-        self.position_hashes.is_repetition(3)
-    }
-
-    /// Returns `true` if the current position has appeared at least five
-    /// times in the recorded hash trail.
-    pub fn is_fivefold_repetition(&self) -> bool {
-        self.position_hashes.is_repetition(5)
     }
 
     /// Returns the current half-move clock value.
