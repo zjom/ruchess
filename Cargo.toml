@@ -2,11 +2,13 @@
 name = "ruchess"
 version = "0.0.13"
 edition = "2024"
-authors = ["zjom"]
-license = "Unlicense"
 description = "rust chess"
 documentation = "https://docs.rs/ruchess"
 repository = "https://github.com/zjom/ruchess"
+license = "Unlicense"
+
+[workspace]
+members = ["tui"]
 
 [dependencies]
 arrayvec = "0.7.6"
@@ -14,13 +16,10 @@ arrayvec = "0.7.6"
 [dev-dependencies]
 proptest = "1"
 
-[workspace]
-members = ["tui"]
+[profile.bench]
+inherits = "release"
+debug = true
 
 [profile.release]
 opt-level = 3
 debug = false
-
-[profile.bench]
-inherits = "release"
-debug = true
