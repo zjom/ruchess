@@ -359,7 +359,13 @@ impl Board {
     /// ```
     #[inline]
     pub fn color_at(&self, sq: Square) -> Option<Color> {
-        self.by_color.find(|bb| bb.is_set(sq))
+        if !self.occupied.is_set(sq) {
+            None
+        } else if self.by_color.white.is_set(sq) {
+            Some(Color::White)
+        } else {
+            Some(Color::Black)
+        }
     }
 
     /// Checks whether the [`Piece`] `p` exists on the board.
