@@ -69,7 +69,6 @@ use crate::{
 pub struct Position {
     board: Board,
     history: History,
-    color: Color,
     ply: Ply,
 }
 
@@ -106,7 +105,6 @@ impl Position {
         Self {
             board: Board::new(),
             history: History::new(),
-            color: Color::White,
             ply: Ply::new(),
         }
     }
@@ -121,7 +119,6 @@ impl Position {
         Self {
             board: Board::new(),
             history: History::new_no_repetition(),
-            color: Color::White,
             ply: Ply::new(),
         }
     }
@@ -155,7 +152,8 @@ impl Position {
         Self { board, ..self }
     }
 
-    /// Returns a new position with the given side to move.
+    /// Returns a new position with the given side to move, keeping the
+    /// full-move number.
     ///
     /// # Example
     /// ```
@@ -165,23 +163,10 @@ impl Position {
     /// assert_eq!(p.color(), Color::Black);
     /// ```
     pub fn with_color(self, color: Color) -> Self {
-        Self { color, ..self }
-    }
-
-    /// Returns a new position with the opposite side to move.
-    ///
-    /// # Example
-    /// ```
-    /// # use ruchess::position::Position;
-    /// # use ruchess::color::Color;
-    /// let p = Position::new();
-    /// assert_eq!(p.color(), Color::White);
-    /// let q = p.change_color();
-    /// assert_eq!(q.color(), Color::Black);
-    /// ```
-    pub fn change_color(self) -> Self {
-        let color = self.color;
-        self.with_color(color.opponent())
+        Self {
+            ply: self.ply.with_turn(color),
+            ..self
+        }
     }
 
     /// Returns a new position with the given [`History`], preserving board
@@ -215,8 +200,8 @@ impl Position {
         }
     }
 
-    /// Returns a new position with the ply, leaving the
-    /// rest of [`Position`] unchanged.
+    /// Returns a new position with the given ply — which also sets the side
+    /// to move — leaving the rest of [`Position`] unchanged.
     ///
     /// # Example
     /// ```
@@ -333,7 +318,7 @@ impl Position {
         self.history.castles =
             self.history
                 .castles
-                .update(mve, mover_role == Some(Role::King), self.color);
+                .update(mve, mover_role == Some(Role::King), self.color());
         self.history.unmoved_rooks = self.history.unmoved_rooks.update(mve);
         self.history.half_move_clock = if resets_clock {
             self.history.half_move_clock.reset()
@@ -342,8 +327,8 @@ impl Position {
         };
 
         // Apply the move's bit toggles to the board, then advance side/ply.
-        apply_move(&mut self.board, mve, self.color);
-        self.color = self.color.opponent();
+        let mover = self.color();
+        apply_move(&mut self.board, mve, mover);
         self.ply = self.ply.incr();
 
         Undo {
@@ -363,7 +348,6 @@ impl Position {
     /// position.
     pub fn unmake(&mut self, undo: Undo) {
         self.ply = self.ply.decr();
-        self.color = self.color.opponent();
         self.board = undo.prior_board;
         self.history.castles = undo.prior_castles;
         self.history.unmoved_rooks = undo.prior_unmoved_rooks;
@@ -393,8 +377,9 @@ impl Position {
     /// # use ruchess::color::Color;
     /// assert_eq!(Position::new().color(), Color::White);
     /// ```
+    #[inline]
     pub fn color(&self) -> Color {
-        self.color
+        self.ply.turn()
     }
 
     /// Returns a reference to the [`History`] — last move, castling rights,
@@ -443,7 +428,7 @@ impl Position {
     /// assert!(!Position::new().is_check());
     /// ```
     pub fn is_check(&self) -> bool {
-        self.board.is_check(self.color)
+        self.board.is_check(self.color())
     }
 
     /// Returns the en-passant target square if the previous move was a
@@ -461,7 +446,7 @@ impl Position {
     pub fn enpassant_square(&self) -> Option<Square> {
         self.history
             .last_move
-            .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color))
+            .and_then(|lm| potential_enpassant_sq(lm, self.board, self.color()))
     }
 
     /// Returns all valid moves in this position.
@@ -553,14 +538,14 @@ impl Position {
         }
         let pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
-            color: self.color,
+            color: self.color(),
         });
-        let them = self.board.bycolor(self.color.opponent());
+        let them = self.board.bycolor(self.color().opponent());
 
         // Captures. A pinned pawn can only capture along its king-pinner ray.
         for from in pawns {
             let mask = ctx.target_mask(from);
-            for to in ATTACKS.pawn_attacks(self.color, from) & them & mask {
+            for to in ATTACKS.pawn_attacks(self.color(), from) & them & mask {
                 self.push_pawn_moves(buf, from, to);
             }
         }
@@ -570,12 +555,12 @@ impl Position {
 
         // Single pushes for unpinned pawns.
         let singles = !occupied
-            & (match self.color {
+            & (match self.color() {
                 Color::White => unpinned << 8,
                 Color::Black => unpinned >> 8,
             });
         for to in singles & ctx.check_mask {
-            let from = Square(match self.color {
+            let from = Square(match self.color() {
                 Color::White => to.0 - 8,
                 Color::Black => to.0 + 8,
             });
@@ -584,13 +569,13 @@ impl Position {
 
         // Double pushes for unpinned pawns.
         let doubles = !occupied
-            & (match self.color {
+            & (match self.color() {
                 Color::White => singles << 8,
                 Color::Black => singles >> 8,
             })
-            & self.color.fourth_rank();
+            & self.color().fourth_rank();
         for to in doubles & ctx.check_mask {
-            let from = Square(match self.color {
+            let from = Square(match self.color() {
                 Color::White => to.0 - 16,
                 Color::Black => to.0 + 16,
             });
@@ -600,7 +585,7 @@ impl Position {
         // Pinned pawn pushes — destination must lie on the pin ray.
         for from in pawns & ctx.pinned {
             let mask = ctx.target_mask(from);
-            let single_to = Square(match self.color {
+            let single_to = Square(match self.color() {
                 Color::White => from.0 + 8,
                 Color::Black => from.0 - 8,
             });
@@ -608,8 +593,8 @@ impl Position {
                 if mask.is_set(single_to) {
                     self.push_pawn_moves(buf, from, single_to);
                 }
-                if from.rank() == self.color.second_rank() {
-                    let double_to = Square(match self.color {
+                if from.rank() == self.color().second_rank() {
+                    let double_to = Square(match self.color() {
                         Color::White => from.0 + 16,
                         Color::Black => from.0 - 16,
                     });
@@ -648,21 +633,21 @@ impl Position {
         let Some(last_move) = self.history.last_move else {
             return;
         };
-        let Some(target) = potential_enpassant_sq(last_move, self.board, self.color) else {
+        let Some(target) = potential_enpassant_sq(last_move, self.board, self.color()) else {
             return;
         };
         let our_pawns = self.board.bypiece(Piece {
             role: Role::Pawn,
-            color: self.color,
+            color: self.color(),
         });
-        for from in ATTACKS.pawn_attacks(self.color.opponent(), target) & our_pawns {
+        for from in ATTACKS.pawn_attacks(self.color().opponent(), target) & our_pawns {
             let m = self.enpassant(from, target);
             // Discovered-check fallback: en passant removes a pawn from
             // a different square than the capturer's destination, which
             // can expose the king. Apply and re-test cheaply.
             let mut working = self.board;
-            apply_move(&mut working, &m, self.color);
-            if !working.is_check(self.color) {
+            apply_move(&mut working, &m, self.color());
+            if !working.is_check(self.color()) {
                 buf.push(m);
             }
         }
@@ -693,7 +678,7 @@ impl Position {
     /// ```
     pub fn king_moves(&self, buf: &mut MoveList, ctx: &LegalityContext) {
         let orig = ctx.king_sq;
-        let our_pieces = self.board.bycolor(self.color);
+        let our_pieces = self.board.bycolor(self.color());
         for dest in ATTACKS.king_attacks(orig) & !ctx.danger & !our_pieces {
             buf.push(self.normal(orig, dest));
         }
@@ -722,9 +707,9 @@ impl Position {
         }
         let knights = self.board.bypiece(Piece {
             role: Role::Knight,
-            color: self.color,
+            color: self.color(),
         }) & !ctx.pinned;
-        let targets = ctx.check_mask & !self.board.bycolor(self.color);
+        let targets = ctx.check_mask & !self.board.bycolor(self.color());
         for from in knights {
             for to in ATTACKS.knight_attacks(from) & targets {
                 buf.push(self.normal(from, to));
@@ -753,10 +738,10 @@ impl Position {
         }
         let bishops = self.board.bypiece(Piece {
             role: Role::Bishop,
-            color: self.color,
+            color: self.color(),
         });
         let occupied = self.board.occupied();
-        let not_us = !self.board.bycolor(self.color);
+        let not_us = !self.board.bycolor(self.color());
         for from in bishops {
             let mask = ctx.target_mask(from) & not_us;
             for to in ATTACKS.bishop_attacks(from, occupied) & mask {
@@ -786,10 +771,10 @@ impl Position {
         }
         let rooks = self.board.bypiece(Piece {
             role: Role::Rook,
-            color: self.color,
+            color: self.color(),
         });
         let occupied = self.board.occupied();
-        let not_us = !self.board.bycolor(self.color);
+        let not_us = !self.board.bycolor(self.color());
         for from in rooks {
             let mask = ctx.target_mask(from) & not_us;
             for to in ATTACKS.rook_attacks(from, occupied) & mask {
@@ -820,10 +805,10 @@ impl Position {
         }
         let queens = self.board.bypiece(Piece {
             role: Role::Queen,
-            color: self.color,
+            color: self.color(),
         });
         let occupied = self.board.occupied();
-        let not_us = !self.board.bycolor(self.color);
+        let not_us = !self.board.bycolor(self.color());
         for from in queens {
             let mask = ctx.target_mask(from) & not_us;
             let attacks =
@@ -854,16 +839,16 @@ impl Position {
     /// attacked square.
     #[inline]
     fn castle(&self, side: Side, ctx: &LegalityContext) -> Option<Move> {
-        if !self.history.castles.can_side(self.color, side) {
+        if !self.history.castles.can_side(self.color(), side) {
             return None;
         }
 
         let king_from = ctx.king_sq;
-        let rook_from = self.color.castle_square(side);
+        let rook_from = self.color().castle_square(side);
         if !self.history.unmoved_rooks.contains(rook_from) {
             return None;
         }
-        let (king_to, _rook_to, between, king_path) = castle_squares(self.color, side);
+        let (king_to, _rook_to, between, king_path) = castle_squares(self.color(), side);
 
         if (self.board.occupied() & between).is_non_empty() {
             return None;
@@ -895,7 +880,7 @@ impl Position {
     /// move.
     #[inline]
     fn push_pawn_moves(&self, buf: &mut MoveList, from: Square, to: Square) {
-        let is_promotion = from.rank() == self.color.seventh_rank();
+        let is_promotion = from.rank() == self.color().seventh_rank();
         if is_promotion {
             for r in PromotableRole::ROLES {
                 buf.push(Move::promotion(from, to, r));
@@ -945,7 +930,7 @@ impl LegalityContext {
     /// Computes the legality context for `pos`'s side to move.
     pub fn compute(pos: &Position) -> Self {
         let board = &pos.board;
-        let us = pos.color;
+        let us = pos.color();
         let them = us.opponent();
         let king_sq = board.king(us);
 
@@ -1327,14 +1312,12 @@ mod tests {
     }
 
     #[test]
-    fn change_color_actually_flips() {
-        let p = Position::new();
-        assert_eq!(p.color(), Color::White);
-        // change_color should produce a position whose color is the opponent.
-        // The current implementation in position.rs:40-43 is a no-op — this
-        // test surfaces the bug.
-        let q = p.change_color();
-        assert_eq!(q.color(), Color::Black);
+    fn with_color_keeps_the_full_move_number() {
+        let p = Position::new()
+            .with_ply(Ply::from_full_moves(7, Color::White))
+            .with_color(Color::Black);
+        assert_eq!(p.color(), Color::Black);
+        assert_eq!(p.ply().full_move_number(), 7);
     }
 
     // ── Pawn pushes ──────────────────────────────────────────────────────

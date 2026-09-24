@@ -1,9 +1,9 @@
 //! # Plies
 //!
 //! A "ply" is a half-move — a single move by one side. Two plies make one
-//! full move in chess notation. [`Ply`] is the counter used by
-//! [`Game`](crate::game::Game) to track whose turn it is and which full move
-//! number the game is on.
+//! full move in chess notation. [`Ply`] is the counter a
+//! [`Position`](crate::position::Position) uses to know whose turn it is and
+//! which full move number the game is on.
 
 use crate::color::Color;
 
@@ -44,6 +44,7 @@ impl Ply {
     /// assert_eq!(Ply::new().turn(), Color::White);
     /// assert_eq!(Ply::new().incr().turn(), Color::Black);
     /// ```
+    #[inline]
     pub fn turn(&self) -> Color {
         if self.is_even() {
             Color::White
@@ -92,22 +93,38 @@ impl Ply {
         1 + self.0 / 2
     }
 
-    /// Creates a [`Ply`] at the start of the given full-move number (i.e., White's
-    /// half-move within that move).
-    ///
-    /// This is the inverse of [`Ply::full_move_number`]:
-    /// `Ply::from_full_moves(p.full_move_number()).full_move_number() == p.full_move_number()`
+    /// Creates the [`Ply`] for full-move number `full_moves` (1-based) with
+    /// `turn` to move — the inverse of [`Ply::full_move_number`] and
+    /// [`Ply::turn`]. A full-move number of 0 is treated as 1.
     ///
     /// # Example
     /// ```
     /// # use ruchess::ply::Ply;
-    /// assert_eq!(Ply::from_full_moves(1), Ply::new());           // ply 0
-    /// assert_eq!(Ply::from_full_moves(2), Ply::new().incr().incr()); // ply 2
-    /// assert_eq!(Ply::from_full_moves(1).full_move_number(), 1);
-    /// assert_eq!(Ply::from_full_moves(5).full_move_number(), 5);
+    /// # use ruchess::color::Color;
+    /// assert_eq!(Ply::from_full_moves(1, Color::White), Ply::new());
+    /// assert_eq!(Ply::from_full_moves(1, Color::Black), Ply::new().incr());
+    /// let p = Ply::from_full_moves(5, Color::Black);
+    /// assert_eq!(p.full_move_number(), 5);
+    /// assert_eq!(p.turn(), Color::Black);
     /// ```
-    pub fn from_full_moves(full_moves: u32) -> Self {
-        Ply((full_moves - 1) * 2)
+    pub fn from_full_moves(full_moves: u32, turn: Color) -> Self {
+        let black = matches!(turn, Color::Black) as u32;
+        Ply(full_moves.saturating_sub(1) * 2 + black)
+    }
+
+    /// Returns this ply adjusted so `turn` is to move, keeping the full-move
+    /// number.
+    ///
+    /// # Example
+    /// ```
+    /// # use ruchess::ply::Ply;
+    /// # use ruchess::color::Color;
+    /// let p = Ply::from_full_moves(3, Color::White).with_turn(Color::Black);
+    /// assert_eq!(p, Ply::from_full_moves(3, Color::Black));
+    /// ```
+    #[must_use]
+    pub fn with_turn(self, turn: Color) -> Self {
+        Self::from_full_moves(self.full_move_number(), turn)
     }
 
     fn is_even(&self) -> bool {

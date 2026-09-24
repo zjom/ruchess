@@ -81,7 +81,7 @@ pub fn parse(s: &str) -> Result<Position, ParseFenError> {
     let ply = fullmove_s
         .parse()
         .map_err(|_| ParseFenError::InvalidFullmoveNumber)
-        .map(Ply::from_full_moves)?;
+        .map(|n| Ply::from_full_moves(n, color))?;
 
     let history = History {
         last_move,
@@ -93,7 +93,6 @@ pub fn parse(s: &str) -> Result<Position, ParseFenError> {
 
     Ok(Position::new()
         .with_board(board)
-        .with_color(color)
         .with_history(history)
         .with_ply(ply))
 }
@@ -315,6 +314,17 @@ mod tests {
     fn active_color_black() {
         let p = parse("4k3/8/8/8/8/8/8/4K3 b - - 0 1").unwrap();
         assert_eq!(p.color(), Color::Black);
+    }
+
+    #[test]
+    fn ply_agrees_with_active_color() {
+        let p = parse("4k3/8/8/8/8/8/8/4K3 b - - 0 12").unwrap();
+        assert_eq!(p.ply().turn(), Color::Black);
+        assert_eq!(p.ply().full_move_number(), 12);
+
+        let p = parse("4k3/8/8/8/8/8/8/4K3 w - - 0 12").unwrap();
+        assert_eq!(p.ply().turn(), Color::White);
+        assert_eq!(p.ply().full_move_number(), 12);
     }
 
     #[test]
