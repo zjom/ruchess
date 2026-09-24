@@ -1,6 +1,6 @@
 [package]
 name = "ruchess"
-version = "0.0.13"
+version = "0.0.14"
 edition = "2024"
 description = "rust chess"
 documentation = "https://docs.rs/ruchess"
@@ -9,6 +9,9 @@ license = "Unlicense"
 
 [workspace]
 members = ["ruchess_tui"]
+
+[lib]
+name = "ruchess"
 
 [dependencies]
 arrayvec = "0.7.6"
