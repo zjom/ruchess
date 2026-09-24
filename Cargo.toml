@@ -8,7 +8,7 @@ repository = "https://github.com/zjom/ruchess"
 license = "Unlicense"
 
 [workspace]
-members = ["tui"]
+members = ["ruchess_tui"]
 
 [dependencies]
 arrayvec = "0.7.6"

@@ -1158,6 +1158,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruchess_tui"
+version = "0.1.0"
+dependencies = [
+ "ratatui",
+ "ruchess",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1509,14 +1517,6 @@ name = "time-core"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
-
-[[package]]
-name = "tui"
-version = "0.1.0"
-dependencies = [
- "ratatui",
- "ruchess",
-]
 
 [[package]]
 name = "typenum"
