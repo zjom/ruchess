@@ -1845,6 +1845,31 @@ mod proptests {
             }
         }
 
+        // A sequence of makes, unmade in reverse, restores every intermediate
+        // position exactly — including history and the repetition trail.
+        #[test]
+        fn make_unmake_sequence_round_trip(
+            p in random_position(),
+            picks in prop::collection::vec(any::<prop::sample::Index>(), 1..12),
+        ) {
+            let mut q = p.clone();
+            let mut stack = Vec::new();
+            for pick in picks {
+                let moves = collect_valid(&q);
+                if moves.is_empty() {
+                    break;
+                }
+                let before = q.clone();
+                let undo = q.make(&moves[pick.index(moves.len())]);
+                stack.push((before, undo));
+            }
+            while let Some((before, undo)) = stack.pop() {
+                q.unmake(undo);
+                prop_assert_eq!(&q, &before);
+            }
+            prop_assert_eq!(&q, &p);
+        }
+
         // make produces the same end state as the persistent `mve` for every legal move.
         #[test]
         fn make_matches_persistent_mve(p in random_position()) {

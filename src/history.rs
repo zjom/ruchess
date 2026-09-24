@@ -5,17 +5,12 @@
 //! castling rights, which rooks have not moved, the fifty-move clock, and a
 //! rolling trail of Zobrist hashes used for repetition detection.
 //!
-//! Like the rest of the crate, `History` is persistent: every mutating
-//! method returns a new value rather than modifying in place.
+//! `History` is updated only by
+//! [`Position::make`](crate::position::Position::make) and
+//! [`Position::unmake`](crate::position::Position::unmake).
 
 use crate::{
-    castles::Castles,
-    halfmoveclock::HalfMoveClock,
-    hash::{Hash, PositionHash},
-    mve::Move,
-    position::Position,
-    role::Role,
-    uci::Uci,
+    castles::Castles, halfmoveclock::HalfMoveClock, hash::PositionHash, uci::Uci,
     unmoved_rooks::UnmovedRooks,
 };
 
@@ -59,12 +54,13 @@ impl History {
     /// Like [`Self::new`], but with repetition tracking permanently disabled.
     ///
     /// Skips the Zobrist hash computation and the `Vec<u8>` growth that
-    /// [`Self::update`] would otherwise do on every move. Use this for
+    /// [`Position::make`](crate::position::Position::make) would otherwise do
+    /// on every move. Use this for
     /// perft, fixed-depth search, and any other workload that never calls
     /// [`Self::is_threefold_repetition`] or [`Self::is_fivefold_repetition`].
     ///
     /// Once disabled, the `Disabled` state propagates through every
-    /// descendant history produced by [`Self::update`].
+    /// descendant position.
     pub fn new_no_repetition() -> Self {
         Self {
             last_move: None,
@@ -88,59 +84,6 @@ impl History {
     #[must_use]
     pub fn with_castles(self, castles: Castles) -> Self {
         Self { castles, ..self }
-    }
-
-    /// Appends the Zobrist hash of `position` to the front of the hash trail.
-    ///
-    /// Used to record a position without playing a move through it — for
-    /// example to seed the trail from a FEN string before any moves have
-    /// been generated. No-op when repetition tracking is disabled.
-    #[must_use]
-    pub fn push_position(self, position: &Position) -> Self {
-        if self.position_hashes.is_disabled() {
-            return self;
-        }
-        let entry = PositionHash::from_hash(Hash::from_position(position));
-        Self {
-            position_hashes: entry.combine(&self.position_hashes),
-            ..self
-        }
-    }
-
-    /// Returns the history that should follow playing `mve` from `prev`.
-    ///
-    /// Updates the hash trail (prepending `prev`'s hash), records the move
-    /// in `last_move`, updates castling rights and unmoved rooks, and either
-    /// resets or increments the half-move clock based on whether `mve` was a
-    /// pawn move or capture.
-    ///
-    /// Skips the hash work entirely when repetition tracking is disabled.
-    #[must_use]
-    pub fn update(self, prev: &Position, mve: &Move) -> Self {
-        let position_hashes = if self.position_hashes.is_disabled() {
-            PositionHash::disabled()
-        } else {
-            let entry = PositionHash::from_hash(Hash::from_position(prev));
-            entry.combine(&self.position_hashes)
-        };
-
-        let mover_role = prev.board().role_at(mve.orig());
-        let is_capture = crate::position::is_capture(prev.board(), mve);
-        let half_move_clock = if mover_role == Some(Role::Pawn) || is_capture {
-            self.half_move_clock.reset()
-        } else {
-            self.half_move_clock.incr()
-        };
-
-        Self {
-            position_hashes,
-            last_move: Some((*mve).into()),
-            castles: self
-                .castles
-                .update(mve, mover_role == Some(Role::King), prev.color()),
-            unmoved_rooks: self.unmoved_rooks.update(mve),
-            half_move_clock,
-        }
     }
 
     /// Returns `true` if the current position has appeared at least three
