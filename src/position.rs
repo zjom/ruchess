@@ -689,9 +689,7 @@ impl Position {
         let orig = ctx.king_sq;
         let our_pieces = self.board.bycolor(self.color);
         for dest in ATTACKS.king_attacks(orig) & !ctx.danger & !our_pieces {
-            if let Some(m) = self.normal(orig, dest) {
-                buf.push(m);
-            }
+            buf.push(self.normal(orig, dest));
         }
         self.push_castling_moves(buf, ctx);
     }
@@ -720,11 +718,10 @@ impl Position {
             role: Role::Knight,
             color: self.color,
         }) & !ctx.pinned;
+        let targets = ctx.check_mask & !self.board.bycolor(self.color);
         for from in knights {
-            for to in ATTACKS.knight_attacks(from) & ctx.check_mask {
-                if let Some(m) = self.normal(from, to) {
-                    buf.push(m);
-                }
+            for to in ATTACKS.knight_attacks(from) & targets {
+                buf.push(self.normal(from, to));
             }
         }
     }
@@ -753,12 +750,11 @@ impl Position {
             color: self.color,
         });
         let occupied = self.board.occupied();
+        let not_us = !self.board.bycolor(self.color);
         for from in bishops {
-            let mask = ctx.target_mask(from);
+            let mask = ctx.target_mask(from) & not_us;
             for to in ATTACKS.bishop_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to) {
-                    buf.push(m);
-                }
+                buf.push(self.normal(from, to));
             }
         }
     }
@@ -787,12 +783,11 @@ impl Position {
             color: self.color,
         });
         let occupied = self.board.occupied();
+        let not_us = !self.board.bycolor(self.color);
         for from in rooks {
-            let mask = ctx.target_mask(from);
+            let mask = ctx.target_mask(from) & not_us;
             for to in ATTACKS.rook_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to) {
-                    buf.push(m);
-                }
+                buf.push(self.normal(from, to));
             }
         }
     }
@@ -822,17 +817,13 @@ impl Position {
             color: self.color,
         });
         let occupied = self.board.occupied();
+        let not_us = !self.board.bycolor(self.color);
         for from in queens {
-            let mask = ctx.target_mask(from);
-            for to in ATTACKS.bishop_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to) {
-                    buf.push(m);
-                }
-            }
-            for to in ATTACKS.rook_attacks(from, occupied) & mask {
-                if let Some(m) = self.normal(from, to) {
-                    buf.push(m);
-                }
+            let mask = ctx.target_mask(from) & not_us;
+            let attacks =
+                ATTACKS.bishop_attacks(from, occupied) | ATTACKS.rook_attacks(from, occupied);
+            for to in attacks & mask {
+                buf.push(self.normal(from, to));
             }
         }
     }
@@ -879,14 +870,11 @@ impl Position {
     }
 
     /// Builds a non-special move (quiet push or simple capture) from `orig`
-    /// to `dest`. Returns `None` if the destination holds one of our own
-    /// pieces.
+    /// to `dest`. Callers must already have excluded destinations holding one
+    /// of our own pieces (via bitboard masking).
     #[inline]
-    fn normal(&self, orig: Square, dest: Square) -> Option<Move> {
-        if self.board.color_at(dest) == Some(self.color) {
-            return None;
-        }
-        Some(Move::normal(orig, dest))
+    fn normal(&self, orig: Square, dest: Square) -> Move {
+        Move::normal(orig, dest)
     }
 
     /// Builds an en-passant [`Move`] from `orig` to `dest`.
@@ -906,8 +894,8 @@ impl Position {
             for r in PromotableRole::ROLES {
                 buf.push(Move::promotion(from, to, r));
             }
-        } else if let Some(m) = self.normal(from, to) {
-            buf.push(m);
+        } else {
+            buf.push(self.normal(from, to));
         }
     }
 }
