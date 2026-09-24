@@ -1,6 +1,6 @@
 [package]
 name = "ruchess"
-version = "0.0.14"
+version = "0.0.15"
 edition = "2024"
 description = "rust chess"
 documentation = "https://docs.rs/ruchess"
