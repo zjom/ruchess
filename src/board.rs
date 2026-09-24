@@ -19,22 +19,21 @@
 //!
 //! ---
 //!
-//! ## Movement and Captures
+//! ## Editing Pieces
 //!
-//! The [`Board`] is designed to be persistent and functional. Methods like [`Board::mve`]
-//! and [`Board::capture`] return a new, updated [`Board`] instead of mutating the current one.
+//! The [`Board`] is designed to be persistent and functional. Methods like [`Board::set`]
+//! and [`Board::pop`] return a new, updated [`Board`] instead of mutating the current one.
+//! Playing chess moves is the job of [`Position`](crate::position::Position).
 //!
-//! ### Example: Simple Move
+//! ### Example: Placing a piece
 //! ```
 //! # use ruchess::board::Board;
 //! # use ruchess::square;
-//! let board = Board::new(); // Starting position
-//!
-//! // Move the E2 pawn to E4
-//! if let Some(new_board) = board.mve(square::E2, square::E4) {
-//!     assert!(new_board.is_occupied(square::E4));
-//!     assert!(!new_board.is_occupied(square::E2));
-//! }
+//! # use ruchess::piece::Piece;
+//! # use ruchess::role::Role;
+//! # use ruchess::color::Color;
+//! let board = Board::EMPTY.set(square::E4, Piece { role: Role::Pawn, color: Color::White });
+//! assert!(board.is_occupied(square::E4));
 //! ```
 //!
 //! ---
@@ -129,67 +128,6 @@ impl Board {
         },
         occupied: Bitboard::EMPTY,
     };
-
-    /// Moves a piece from `orig` to `dest`.
-    ///
-    /// Returns `None` if `dest` is occupied or if there is no piece at `orig`.
-    ///
-    /// # Example
-    /// ```
-    /// # use ruchess::board::Board;
-    /// # use ruchess::square;
-    /// let board = Board::new();
-    /// let next = board.mve(square::E2, square::E4).unwrap();
-    /// assert!(next.is_occupied(square::E4));
-    /// assert!(!next.is_occupied(square::E2));
-    ///
-    /// // Cannot move to occupied square
-    /// assert!(board.mve(square::E1, square::E2).is_none());
-    /// ```
-    #[must_use]
-    pub fn mve(self, orig: Square, dest: Square) -> Option<Self> {
-        if self.is_occupied(dest) {
-            return None;
-        }
-        let (board, Some(piece)) = self.pop(orig) else {
-            return None;
-        };
-        Some(board.set(dest, piece))
-    }
-
-    /// Performs a capture from `orig` to `dest`.
-    ///
-    /// If `capture` is `Some(sq)`, the piece at `sq` is removed (e.g. for en passant).
-    /// Returns `None` if there is no piece at `orig`.
-    ///
-    /// # Example
-    /// ```
-    /// # use ruchess::board::Board;
-    /// # use ruchess::square;
-    /// # use ruchess::piece::Piece;
-    /// # use ruchess::role::Role;
-    /// # use ruchess::color::Color;
-    /// let board = Board::EMPTY.set(square::E2, Piece { role: Role::Pawn, color: Color::White })
-    ///                         .set(square::F3, Piece { role: Role::Knight, color: Color::Black });
-    ///
-    /// let next = board.capture(square::E2, square::F3, None).unwrap();
-    /// assert!(next.is_occupied(square::F3));
-    /// assert!(!next.is_occupied(square::E2));
-    /// assert_eq!(next.piece_at(square::F3).unwrap().color, Color::White);
-    /// ```
-    #[must_use]
-    pub fn capture(self, orig: Square, dest: Square, capture: Option<Square>) -> Option<Self> {
-        let (board, Some(piece)) = self.pop(orig) else {
-            return None;
-        };
-
-        let board = board.set(dest, piece);
-        if let Some(sq) = capture {
-            Some(board.pop(sq).0)
-        } else {
-            Some(board)
-        }
-    }
 
     /// Returns a new [`Board`] with the [`Square`] `sq` set to `p`.
     ///
@@ -780,63 +718,6 @@ mod proptests {
             })
     }
 
-    /// (board, orig ∈ occupied, dest ∈ empty). Avoids rejection by drawing
-    /// from the board's actual squares instead of `prop_assume!`-filtering.
-    fn board_and_move() -> impl Strategy<Value = (Board, Square, Square)> {
-        random_board()
-            .prop_filter("need ≥1 occupied and ≥1 empty square", |b| {
-                let n = b.occupied().0.count_ones();
-                (1..64).contains(&n)
-            })
-            .prop_flat_map(|b| {
-                let occ: Vec<Square> = b.occupied().into_iter().collect();
-                let emp: Vec<Square> = (!b.occupied()).into_iter().collect();
-                (
-                    Just(b),
-                    proptest::sample::select(occ),
-                    proptest::sample::select(emp),
-                )
-            })
-    }
-
-    /// (board, orig ∈ occupied, dest ∈ occupied, orig != dest).
-    fn board_and_two_occupied() -> impl Strategy<Value = (Board, Square, Square)> {
-        random_board()
-            .prop_filter("need ≥2 occupied squares", |b| {
-                b.occupied().0.count_ones() >= 2
-            })
-            .prop_flat_map(|b| {
-                let occ: Vec<Square> = b.occupied().into_iter().collect();
-                (
-                    Just(b),
-                    proptest::sample::select(occ.clone()),
-                    proptest::sample::select(occ),
-                )
-            })
-            .prop_filter("orig != dest", |(_, o, d)| o != d)
-    }
-
-    /// (board, orig ∈ occupied, dest ∈ any, cap ∈ occupied) with cap distinct
-    /// from both orig and dest — the en-passant-like capture shape.
-    fn board_and_capture_target() -> impl Strategy<Value = (Board, Square, Square, Square)> {
-        random_board()
-            .prop_filter("need ≥2 occupied squares", |b| {
-                b.occupied().0.count_ones() >= 2
-            })
-            .prop_flat_map(|b| {
-                let occ: Vec<Square> = b.occupied().into_iter().collect();
-                (
-                    Just(b),
-                    proptest::sample::select(occ.clone()),
-                    sq(),
-                    proptest::sample::select(occ),
-                )
-            })
-            .prop_filter("cap != orig and cap != dest", |(_, o, d, c)| {
-                c != o && c != d
-            })
-    }
-
     // ── Equivalence helpers (Board has no PartialEq) ─────────────────────
 
     fn pieces_equiv(a: Piece, b: Piece) -> bool {
@@ -942,31 +823,6 @@ mod proptests {
             check_invariants(&after)?;
         }
 
-        #[test]
-        fn invariants_after_mve(b in random_board(), orig in sq(), dest in sq()) {
-            if let Some(after) = b.mve(orig, dest) {
-                check_invariants(&after)?;
-            }
-        }
-
-        #[test]
-        fn invariants_after_capture_no_target(
-            b in random_board(), orig in sq(), dest in sq(),
-        ) {
-            if let Some(after) = b.capture(orig, dest, None) {
-                check_invariants(&after)?;
-            }
-        }
-
-        #[test]
-        fn invariants_after_capture_with_target(
-            b in random_board(), orig in sq(), dest in sq(), cap in sq(),
-        ) {
-            if let Some(after) = b.capture(orig, dest, Some(cap)) {
-                check_invariants(&after)?;
-            }
-        }
-
         // ── Layer 2: round-trips ────────────────────────────────────────
 
         #[test]
@@ -1016,62 +872,5 @@ mod proptests {
             prop_assert!(boards_equiv(&b, &restored));
         }
 
-        #[test]
-        fn mve_succeeds_iff_orig_occupied_and_dest_empty(
-            b in random_board(), orig in sq(), dest in sq(),
-        ) {
-            let ok = b.is_occupied(orig) && !b.is_occupied(dest);
-            prop_assert_eq!(b.mve(orig, dest).is_some(), ok);
-        }
-
-        #[test]
-        fn mve_moves_piece_and_preserves_count((b, orig, dest) in board_and_move()) {
-            let original = b.piece_at(orig).unwrap();
-            let after = b.mve(orig, dest).unwrap();
-
-            prop_assert!(!after.is_occupied(orig));
-            prop_assert!(after.is_occupied(dest));
-            let landed = after.piece_at(dest).unwrap();
-            prop_assert!(pieces_equiv(landed, original));
-            prop_assert_eq!(b.occupied().0.count_ones(), after.occupied().0.count_ones());
-        }
-
-        #[test]
-        fn mve_round_trip((b, orig, dest) in board_and_move()) {
-            let after = b.mve(orig, dest).unwrap();
-            let restored = after.mve(dest, orig).unwrap();
-            prop_assert!(boards_equiv(&b, &restored));
-        }
-
-        #[test]
-        fn capture_none_matches_mve((b, orig, dest) in board_and_move()) {
-            let mved = b.mve(orig, dest).unwrap();
-            let cap = b.capture(orig, dest, None).unwrap();
-            prop_assert!(boards_equiv(&mved, &cap));
-        }
-
-        #[test]
-        fn capture_overwrites_dest((b, orig, dest) in board_and_two_occupied()) {
-            let original = b.piece_at(orig).unwrap();
-            let after = b.capture(orig, dest, None).unwrap();
-            prop_assert!(!after.is_occupied(orig));
-            prop_assert!(after.is_occupied(dest));
-            let landed = after.piece_at(dest).unwrap();
-            prop_assert!(pieces_equiv(landed, original));
-            // Captured one piece: count drops by exactly one.
-            prop_assert_eq!(
-                b.occupied().0.count_ones(),
-                after.occupied().0.count_ones() + 1
-            );
-        }
-
-        #[test]
-        fn capture_with_target_removes_captured(
-            (b, orig, dest, cap) in board_and_capture_target(),
-        ) {
-            let after = b.capture(orig, dest, Some(cap)).unwrap();
-            prop_assert!(!after.is_occupied(cap));
-            prop_assert!(after.is_occupied(dest));
-        }
     }
 }

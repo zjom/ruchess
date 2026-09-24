@@ -19,7 +19,8 @@ impl HalfMoveClock {
         Self(0)
     }
 
-    /// Returns a new clock incremented by one half-move.
+    /// Returns a new clock incremented by one half-move, saturating at
+    /// `u8::MAX`.
     ///
     /// # Example
     /// ```
@@ -27,7 +28,7 @@ impl HalfMoveClock {
     /// assert_eq!(HalfMoveClock::new().incr().get(), 1);
     /// ```
     pub fn incr(self) -> Self {
-        Self(self.0 + 1)
+        Self(self.0.saturating_add(1))
     }
 
     /// Returns the underlying half-move count.

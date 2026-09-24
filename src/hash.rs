@@ -1,13 +1,9 @@
 //! # Zobrist Hashing
 //!
 //! Position fingerprints used for repetition detection and (eventually)
-//! transposition tables. Each [`Position`] gets a 24-bit [`Hash`], computed
+//! transposition tables. Each [`Position`] gets a 32-bit [`Hash`], computed
 //! by XOR-folding precomputed random values for every (color, role, square),
 //! the side to move, castling rights, and the en-passant file.
-//!
-//! [`PositionHash`] stacks several `Hash` values into a packed byte trail —
-//! used by [`History`](crate::history::History) to test for threefold and
-//! fivefold repetition without retaining whole positions.
 
 use crate::{
     color::{ByColor, Color},
@@ -16,137 +12,19 @@ use crate::{
     role::{ByRole, Role},
 };
 
-/// Zobrist hash of a [`Position`], truncated to 24 bits.
+/// 32-bit Zobrist hash of a [`Position`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash(u32);
 
 impl Hash {
-    /// Number of bytes a single `Hash` occupies inside a [`PositionHash`].
-    pub const SIZE: usize = 3;
-
-    /// Wraps an arbitrary 32-bit value, keeping only its top 24 bits.
-    pub fn new(value: u32) -> Self {
-        Self(value >> 8)
-    }
-
-    /// Computes the Zobrist hash of `position`, truncated to 24 bits.
+    /// Computes the Zobrist hash of `position`.
     pub fn from_position(position: &Position) -> Self {
-        Self(hash_position(position) >> 8)
+        Self(hash_position(position))
     }
 
-    /// Returns the underlying 24-bit value (in the low bits of a `u32`).
+    /// Returns the underlying 32-bit value.
     pub fn value(self) -> u32 {
         self.0
-    }
-}
-
-/// Concatenated 3-byte Zobrist hashes, ordered from most-recent to oldest,
-/// or a `Disabled` sentinel that suppresses repetition tracking entirely.
-///
-/// Each `Hash` contributes [`Hash::SIZE`] bytes. Entries `[0..3)` correspond
-/// to the current position; entries at offsets `Hash::SIZE * 2`, `Hash::SIZE * 4`,
-/// ... correspond to earlier positions with the same side to move.
-///
-/// The `Disabled` variant skips the hash computation and `Vec` traffic on
-/// every move — used by perft and search loops that never query repetition.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PositionHash {
-    /// Repetition tracking is off. `combine` is a no-op, `is_repetition`
-    /// always returns false (for `times > 1`).
-    Disabled,
-    /// A growing byte trail of 3-byte hashes.
-    Trail(Vec<u8>),
-}
-
-impl PositionHash {
-    /// Wraps an existing byte vector. The caller is responsible for ensuring
-    /// the length is a multiple of [`Hash::SIZE`] if repetition detection is
-    /// to behave correctly.
-    pub fn new(value: Vec<u8>) -> Self {
-        Self::Trail(value)
-    }
-
-    /// Returns an empty trail with no entries.
-    pub fn empty() -> Self {
-        Self::Trail(Vec::new())
-    }
-
-    /// Returns a `Disabled` trail — repetition tracking is permanently off
-    /// for any chain of histories descending from this value.
-    pub fn disabled() -> Self {
-        Self::Disabled
-    }
-
-    /// Builds a single-entry trail containing the three high bytes of `h`,
-    /// in big-endian order.
-    pub fn from_hash(h: Hash) -> Self {
-        Self::Trail(vec![(h.0 >> 16) as u8, (h.0 >> 8) as u8, h.0 as u8])
-    }
-
-    /// Returns the raw byte buffer. Empty when `Disabled`.
-    pub fn value(&self) -> &[u8] {
-        match self {
-            Self::Disabled => &[],
-            Self::Trail(v) => v,
-        }
-    }
-
-    /// Returns `true` if no positions have been recorded (including `Disabled`).
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::Disabled => true,
-            Self::Trail(v) => v.is_empty(),
-        }
-    }
-
-    /// Returns `true` if repetition tracking is turned off on this trail.
-    pub fn is_disabled(&self) -> bool {
-        matches!(self, Self::Disabled)
-    }
-
-    /// Prepends `self`'s entries with `other`'s, producing a trail that
-    /// keeps `self` (most recent) at the front.
-    ///
-    /// If either side is `Disabled`, the result is `Disabled` — repetition
-    /// tracking, once off, stays off for descendants.
-    #[must_use]
-    pub fn combine(self, other: &PositionHash) -> Self {
-        match (self, other) {
-            (Self::Disabled, _) | (_, Self::Disabled) => Self::Disabled,
-            (Self::Trail(mut v), Self::Trail(o)) => {
-                v.extend_from_slice(o);
-                Self::Trail(v)
-            }
-        }
-    }
-
-    /// Whether the leading hash has appeared at least `times` times in total
-    /// (i.e. `times - 1` additional times among the trailing entries with the
-    /// same side to move).
-    pub fn is_repetition(&self, times: usize) -> bool {
-        if times <= 1 {
-            return true;
-        }
-        let data = match self {
-            Self::Disabled => return false,
-            Self::Trail(v) => v,
-        };
-        let len = data.len();
-        if len <= (times - 1) * 4 * Hash::SIZE {
-            return false;
-        }
-        let x = data[0];
-        let y = data[1];
-        let z = data[2];
-        let mut i = Hash::SIZE * 2;
-        let mut count = 0usize;
-        while i + Hash::SIZE <= len && count < times - 1 {
-            if x == data[i] && y == data[i + 1] && z == data[i + 2] {
-                count += 1;
-            }
-            i += Hash::SIZE * 2;
-        }
-        count == times - 1
     }
 }
 
@@ -376,69 +254,6 @@ const EN_PASSANT_MASKS: [u32; 8] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn hash_drops_low_byte() {
-        assert_eq!(Hash::new(0xAABB_CCDD).value(), 0x00AA_BBCC);
-    }
-
-    #[test]
-    fn hash_fits_in_24_bits() {
-        let h = Hash::from_position(&Position::new());
-        assert_eq!(h.value() & 0xFF00_0000, 0);
-    }
-
-    #[test]
-    fn position_hash_from_hash_is_three_bytes() {
-        // Hash::new shifts right by 8: 0x11_22_33_44 → stored as 0x00_11_22_33.
-        // PositionHash::from_hash emits the bottom three bytes high-to-low.
-        let bytes = PositionHash::from_hash(Hash::new(0x11_22_33_44));
-        assert_eq!(bytes.value(), &[0x11, 0x22, 0x33]);
-    }
-
-    #[test]
-    fn position_hash_empty_is_empty() {
-        assert!(PositionHash::empty().is_empty());
-    }
-
-    #[test]
-    fn combine_concatenates_bytes() {
-        let a = PositionHash::new(vec![1, 2, 3]);
-        let b = PositionHash::new(vec![4, 5, 6]);
-        assert_eq!(a.combine(&b).value(), &[1, 2, 3, 4, 5, 6]);
-    }
-
-    #[test]
-    fn is_repetition_trivial_for_zero_or_one() {
-        let p = PositionHash::empty();
-        assert!(p.is_repetition(0));
-        assert!(p.is_repetition(1));
-    }
-
-    #[test]
-    fn is_repetition_false_when_too_short() {
-        let p = PositionHash::new(vec![1, 2, 3]);
-        assert!(!p.is_repetition(2));
-    }
-
-    #[test]
-    fn is_repetition_detects_threefold() {
-        // Leading hash [1,2,3] then alternating same-side hashes; we want 3
-        // total occurrences, i.e. 2 additional matches at offsets 6 and 12.
-        // The length gate requires len > (times-1)*4*SIZE = 24 bytes for times=3.
-        let mut data = vec![
-            1, 2, 3, // current (side X)
-            9, 9, 9, // other side
-            1, 2, 3, // match #1 (side X, offset 6)
-            8, 8, 8, // other side
-            1, 2, 3, // match #2 (side X, offset 12)
-            7, 7, 7, // other side
-        ];
-        data.extend(std::iter::repeat_n(0u8, 12));
-        let p = PositionHash::new(data);
-        assert!(p.is_repetition(3));
-        assert!(!p.is_repetition(4));
-    }
 
     #[test]
     fn starting_position_hash_is_stable() {
